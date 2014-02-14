@@ -4,9 +4,14 @@
 % AMS332, Spring 2014.
 % 
 % All code in this file, unless otherwise noted in comments, is 
-% written by A. Hope Jasentuliyana, SBU ID 100043659.
+% written by the following contrbutors from AMS332:
+% * A. Hope Jasentuliyana, SBU ID 100043659
+%
 % Resources used include class notes, handouts, and lectures given in
-% SBU course AMS 332, Spring 2014.
+% SBU course AMS 332, Spring 2014 by:
+% * Prof David Green
+% * Prof Giancarlo La Camera
+% as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
 % This file free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by

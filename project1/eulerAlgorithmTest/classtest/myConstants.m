@@ -6,9 +6,14 @@
 % AMS332, Spring 2014.
 % 
 % All code in this file, unless otherwise noted in comments, is 
-% written by A. Hope Jasentuliyana, SBU ID 100043659.
+% written by the following contrbutors from AMS332:
+% * A. Hope Jasentuliyana, SBU ID 100043659
+%
 % Resources used include class notes, handouts, and lectures given in
-% SBU course AMS 332, Spring 2014.
+% SBU course AMS 332, Spring 2014 by:
+% * Prof David Green
+% * Prof Giancarlo La Camera
+% as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
 % This file free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -26,16 +31,16 @@
 
 %There is no good way to use constants in MATLAB
 %this discussion:
-%http://stackoverflow.com/questions/1773850/constants-in-matlab
+%<cite>http://stackoverflow.com/questions/1773850/constants-in-matlab</cite>
 %advocates using a classdef, although it says performance issues
 %may or may not make this unsuitable.
-%MatLAB docs http://www.mathworks.com/help/matlab/matlab_oop/properties-with-constant-values.html
+%MatLAB docs <cite>http://www.mathworks.com/help/matlab/matlab_oop/properties-with-constant-values.html</cite>
 % say "MATLAB evaluates the expressions when loading the class (when you first reference a constant property from that class)." Hopefully that's
 % good enough in a global scope, s.t. there is no overhead for using
 %classdef constants in a loop.
 %
 %this discussion shows the old way (using function calls):
-%http://blogs.mathworks.com/loren/2006/09/13/constants/
+%<cite>http://blogs.mathworks.com/loren/2006/09/13/constants/</cite>
 
 classdef myConstants
 	properties (Constant)

@@ -6,9 +6,14 @@
 % AMS332, Spring 2014.
 % 
 % All code in this file, unless otherwise noted in comments, is 
-% written by A. Hope Jasentuliyana, SBU ID 100043659.
+% written by the following contrbutors from AMS332:
+% * A. Hope Jasentuliyana, SBU ID 100043659
+%
 % Resources used include class notes, handouts, and lectures given in
-% SBU course AMS 332, Spring 2014.
+% SBU course AMS 332, Spring 2014 by:
+% * Prof David Green
+% * Prof Giancarlo La Camera
+% as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
 % This file free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -31,8 +36,8 @@ C=myConstants();
 x=zeros(C.NUM_STEPS,C.NUM_COLS); % first col euler, second is analytic
 t=zeros(C.NUM_STEPS,1);
 t(1)=C.T_ZERO;
-for (i=1:C.NUM_COLS)
-       x(i)=C.X_ZERO(i);
+for (j=1:C.NUM_COLS)
+       x(1,j)=C.X_ZERO(j);
 end
        
        
@@ -48,23 +53,21 @@ end;
 
 %compute sumsqaures error
 ERR_COLS=C.NUM_COLS-1; 
-errMtx=zeros(C.NUM_STEPS,ERR_COLS);
+errSqMtx=zeros(C.NUM_STEPS,ERR_COLS); % squared error
 ssError=zeros(1,ERR_COLS); % (x(i,j+1) - x(i,j))^2
-relError=zeros(C.NUM_STEPS,ERR_COLS); % (x(i,j+1)-x(i,j))/x(i,j)
-for (i=1:(C.NUM_STEPS-1))
+relError=zeros(C.NUM_STEPS,ERR_COLS); % abs(x(i,j+1)-x(i,j))/x(i,j)
+for (i=1:(C.NUM_STEPS))
     for (j=1:ERR_COLS)
-        curDiff=x(i,j+1)-x(i,j);
-        relError(i,j)=curDiff/x(i,j);
-        curError=curDiff^2;
-        ssError(j)=ssError(j)+curError;
-        errMtx(i,j)=curError;
+        curDiff=abs(x(i,j+1)-x(i,j));
+        relError(i,j)=curDiff/abs(x(i,j));
+        curErrSquare=curDiff^2;
+        ssError(j)=ssError(j)+curErrSquare;
+        errSqMtx(i,j)=curErrSquare;
     end % errcols
 end
 
 ssError
 
-semilogy(t,x);
-title('exponential function approximation')
-
-plot(t,relError);
-title('relative error as a function of time')
+semilogy(t,x,t,relError,'r');
+legend('euler','analytic','relative error');
+title({'e^{3t} vs t computed using forward euler and analytically.';'relative error is in red'});

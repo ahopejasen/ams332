@@ -1,0 +1,9 @@
+Matlab does not have a facility to use constants. boo.
+
+Workarounds include using constant properties in a classdef,
+and using functions to return the const value.
+
+The former is not compatible with GNU Octave, although it
+seems workable. I'm testing both right now.
+classtest is the class version
+noClass just uses global constants

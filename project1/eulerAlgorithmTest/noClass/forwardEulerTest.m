@@ -1,3 +1,5 @@
+%test of forward Euler algotihm
+
 %****************************************************************************
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
 % This file is part of homework for Stony Brook University (SBU)  course
@@ -30,44 +32,51 @@
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
 
+%globals (should be consts, but MatLab doesn't do const w/o classes)
+NUM_STEPS= 100; %steps to iterate
+TIME_STEP= 0.01; 
+NUM_COLS= 2; %number of dependent vars
+T_ZERO= 0; %start time
+X_ZERO= [1,1]; % 1xNUM_COLS initial condition vector
+R= 3; % x(t)=exp(R*t);
 
-
-%plotting Hill eq
-
-%constants
-h=[1 2 10]; %exponent of Hill eq (# of subunits)
-numCoef=size(h,2); %number of hill coefficients
-vMax=5.0; % units mM/s
-k=20.0; % units mM
-substrateStep=0.1; %step size for subtrate range
-
-%use column vecor for substrate concentrations for easy plotting
-% [:].' gives a col vector
-substrateRange=[0:substrateStep:100].'; % units mM 
-numSteps=size(substrateRange,1); %height of array
-
-%result array, one column per hill coefficient
-result=zeros(numSteps,numCoef);
-
-
-for i=[1:numCoef] %iterate over hill exponents
-	for j = [1:numSteps]
-		conc=substrateRange(j); %current concentration
-		result(j,i)=vMax*conc^i/(k^i + conc^i); %hill eq. Units: mM/s
-	end %concentrations
-		
-end %hill 
-
-plot(substrateRange,result);
-title(['Reaction rate vs concentration for hill equation';'using different hill coefficients.';'Substrate concentration step size: ',num2str(substrateStep),' mM']);
-
-%make an array for the legend
-legTxt={''}; %curly brackets for cell array.
-%cell arrays: http://www.mathworks.com/help/matlab/matlab_prog/create-a-cell-array.html
-
-for i=[1:numCoef] 
-	legTxt(i)={strcat('h=',num2str(h(i)))}; %need curly brackets 
+%initializations
+x=zeros(NUM_STEPS,NUM_COLS); % first col euler, second is analytic
+t=zeros(NUM_STEPS,1);
+t(1)=T_ZERO;
+for (j=1:NUM_COLS)
+       x(1,j)=X_ZERO(j);
 end
-legend(legTxt,'location','east');
-xlabel('Concentration (mM)');
-ylabel('Reaction rate (mM/s)');
+       
+%iterate       
+for (i=1:NUM_STEPS-1) %loop to find i+1th value based on ith val
+	t(i+1)=t(i)+TIME_STEP;
+	curTime=t(i+1);
+	prevVal=x(i);
+	dx_dt=R*prevVal; % dx/dt=3x
+	curVal=prevVal+dx_dt*TIME_STEP; %forward Euler algorithm
+	x(i+1,1)=curVal;
+	x(i+1,2)=exp(R * curTime); %analytic
+end;
+
+%compute sumsqaures error
+err_cols=NUM_COLS-1; 
+errSqMtx=zeros(NUM_STEPS,err_cols); % squared error
+ssError=zeros(1,err_cols); % (x(i,j+1) - x(i,j))^2
+relError=zeros(NUM_STEPS,err_cols); % abs(x(i,j+1)-x(i,j))/x(i,j)
+for (i=1:NUM_STEPS)
+    for (j=1:err_cols)
+        curDiff=abs(x(i,j+1)-x(i,j));
+        relError(i,j)=curDiff/abs(x(i,j));
+        curErrSquare=curDiff^2;
+        ssError(j)=ssError(j)+curErrSquare;
+        errSqMtx(i,j)=curErrSquare;
+    end % errcols
+end
+
+ssError
+
+%plot
+semilogy(t,x,t,relError,'r');
+legend('euler','analytic','relative error');
+title({'e^{3t} vs t computed using forward euler and analytically.';'relative error is in red'});

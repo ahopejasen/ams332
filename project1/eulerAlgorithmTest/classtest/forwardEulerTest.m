@@ -4,6 +4,9 @@
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
 % This file is part of homework for Stony Brook University (SBU)  course
 % AMS332, Spring 2014.
+%
+% Latest version of source should be available at: 
+% https://github.com/ahopejasen/ams332.git
 % 
 % All code in this file, unless otherwise noted in comments, is 
 % written by the following contrbutors from AMS332:
@@ -15,7 +18,7 @@
 % * Prof Giancarlo La Camera
 % as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
-% This file free software: you can redistribute it and/or modify
+% This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or
 % (at your option) any later version.
@@ -28,9 +31,6 @@
 % You should have received a copy of the GNU General Public License
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
-
-
-
 
 C=myConstants();
 x=zeros(C.NUM_STEPS,C.NUM_COLS); % first col euler, second is analytic
@@ -52,12 +52,12 @@ for (i=1:C.NUM_STEPS-1) %loop to find i+1th value based on ith val
 end;
 
 %compute sumsqaures error
-ERR_COLS=C.NUM_COLS-1; 
-errSqMtx=zeros(C.NUM_STEPS,ERR_COLS); % squared error
-ssError=zeros(1,ERR_COLS); % (x(i,j+1) - x(i,j))^2
-relError=zeros(C.NUM_STEPS,ERR_COLS); % abs(x(i,j+1)-x(i,j))/x(i,j)
+err_cols=C.NUM_COLS-1; 
+errSqMtx=zeros(C.NUM_STEPS,err_cols); % squared error
+ssError=zeros(1,err_cols); % (x(i,j+1) - x(i,j))^2
+relError=zeros(C.NUM_STEPS,err_cols); % abs(x(i,j+1)-x(i,j))/x(i,j)
 for (i=1:(C.NUM_STEPS))
-    for (j=1:ERR_COLS)
+    for (j=1:err_cols)
         curDiff=abs(x(i,j+1)-x(i,j));
         relError(i,j)=curDiff/abs(x(i,j));
         curErrSquare=curDiff^2;

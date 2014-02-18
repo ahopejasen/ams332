@@ -4,6 +4,9 @@
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
 % This file is part of homework for Stony Brook University (SBU)  course
 % AMS332, Spring 2014.
+%
+% Latest version of source should be available at: 
+% https://github.com/ahopejasen/ams332.git
 % 
 % All code in this file, unless otherwise noted in comments, is 
 % written by the following contrbutors from AMS332:
@@ -15,7 +18,7 @@
 % * Prof Giancarlo La Camera
 % as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
-% This file free software: you can redistribute it and/or modify
+% This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or
 % (at your option) any later version.

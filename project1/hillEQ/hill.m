@@ -55,12 +55,15 @@ for i=[1:numCoef] %iterate over hill exponents
 end %hill 
 
 plot(substrateRange,result);
-title(["Reaction rate vs concentration for hill equation";"using different hill coefficients"]);
+title(['Reaction rate vs concentration for hill equation';'using different hill coefficients.';'Substrate concentration step size: ',num2str(substrateStep),' mM']);
 
 %make an array for the legend
-%legTxt=['';''];
-%for i=[1:numCoef]
-%	legTxt(i,1)=strcat('h=',num2str(h(i)));
-%end
-%legTxt
-%legend(legTxt);
+legTxt={''}; %curly brackets for cell array.
+%cell arrays: http://www.mathworks.com/help/matlab/matlab_prog/create-a-cell-array.html
+
+for i=[1:numCoef] 
+	legTxt(i)={strcat('h=',num2str(h(i)))}; %need curly brackets 
+end
+legend(legTxt,'location','east');
+xlabel('Concentration (mM)');
+ylabel('Reaction rate (mM/s)');

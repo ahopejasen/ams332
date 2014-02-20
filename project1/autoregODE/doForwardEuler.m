@@ -49,7 +49,7 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 
 
 	%sanity checking 
-	if ( (size(dX_dtFunct,1)<1) || (size(dX_dtFunct,2)!=1) || (size(dX_dtFunct) != size(X0)) )
+	if ( (size(dX_dtFunct,1)<1) || (size(dX_dtFunct,2)~=1) || (size(dX_dtFunct) ~= size(X0)) )
 		error('input vectors to doForwardEuler have invalid size');
 	end
 

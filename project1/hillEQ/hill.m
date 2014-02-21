@@ -59,7 +59,7 @@ for i=[1:numCoef] %iterate over hill exponents
 end %hill 
 
 plot(substrateRange,result);
-title(['Reaction rate vs concentration for hill equation';'using different hill coefficients.';'Substrate concentration step size: ',num2str(substrateStep),' mM']);
+title({'Reaction rate vs concentration for hill equation';'using different hill coefficients.';['Substrate concentration step size: ',num2str(substrateStep),' mM']});
 
 %make an array for the legend
 legTxt={''}; %curly brackets for cell array.

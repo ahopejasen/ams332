@@ -1,2 +1,4 @@
 #ignore matlab figures
 *.fig
+#ignore jpgs
+*.jpg

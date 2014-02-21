@@ -60,10 +60,13 @@ timeStep=0.01; % (s) delta_t for approximation
 % simulation variables
 X0=[r0;p0]; % initial conditions
 
-% try using anonymous functions: 
+% try using anonymous function handles: 
 % http://www.mathworks.com/help/matlab/ref/function_handle.html
-% so we can pass them to different approximation algorithms if
+% so we can pass the expression to different approximation algorithms if
 % needed....
+% NOTE: variable values (eg mu, k) are stored as constants
+% in the funtion handle when it is declared, and persist when
+% the handle is passed to another function
 dr_dt=@(r,p) mu*p^2/(k^2 + p^2) - chi_r*r; % mRNA rate of change
 dp_dt=@(r,p) omega*r - chi_p*p; % protein rate of change
 
@@ -71,10 +74,20 @@ dX_dt={dr_dt; dp_dt}; % this is a cell-array of function handles
 
 [timeVector,X]=doForwardEuler(dX_dt,X0,startTime,endTime,timeStep);
 
+% compare with MatLab ODE45 (a runge-kutta method)
+dy_dt=@(t,y) [mu *y(2)^2/(k^2 + y(2)^2) - chi_r * y(1);omega * y(1) - chi_p * y(2)]; 
+[t,y]=ode45(dy_dt,[startTime:endTime],X0);
 
-%% off by one error from doForwardEuler
-plot(timeVector(1,1:end-1).',X.'); %plot() wants column vectors
-legend({'mRNA','protein'});
 
-
+plot(timeVector.',X.'); %plot() wants column vectors
+hold on;
+%plot ode45 as crosses
+plot(t,y(:,1),'b+',t,y(:,2),'g+');
+legend({'mRNA','protein'},'Location','East');
+% trick to do multiline title *with* variable values:
+% http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm
+title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];['mu=',num2str(mu),'(mM/s) omega=',num2str(omega),'(1/s) chi\_r=',num2str(chi_r),'(1/s) chi\_p=',num2str(chi_p),'(1/s) k=',num2str(k),'(mM)'];'Crosses show MatLab ode45() solver'})
+xlabel('time (s)');
+ylabel('concentration (mM)')
+hold off;
 

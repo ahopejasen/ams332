@@ -49,7 +49,7 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 
 
 	%sanity checking 
-	if ( (size(dX_dtFunct,1)<1) || (size(dX_dtFunct,2)~=1) || (size(dX_dtFunct) ~= size(X0)) )
+	if ( (size(dX_dtFunct,1)<1) || (size(dX_dtFunct,2)~=1) || all(size(dX_dtFunct) ~= size(X0)) )
 		error('input vectors to doForwardEuler have invalid size');
 	end
 
@@ -58,7 +58,9 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 	end 
 
 	%intializations (ALL_CAPS vars should be consts, but MatLab doesn't do const w/o classes)
-	NUM_STEPS= floor((endTime-startTime)/timeStep); % WARNING ROUNDING ERROR HERE?
+
+	%number of intervals between a & b = (b -a) +1:
+	NUM_STEPS= floor(((endTime-startTime)/timeStep)+1); % WARNING POSSIBLE ROUNDING ERROR HERE?
 	NUM_VARS= size(X0,1); %number of dependent vars
 	timeVect=[startTime:timeStep:endTime] ; % dependent variable
 
@@ -69,10 +71,12 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 	%iterate       
 	for (i=1:NUM_STEPS-1) %loop to find i+1th value based on ith val
 		for j=[1:NUM_VARS]
-			curSlope(j)=dX_dtFunct{j}(X(1,i),X(2,i));
-			%curSlope(j)=dX_dtFunct{j}(X(:,i).');  %cant get this to work
+			%trying this: http://stackoverflow.com/questions/11461963/matlab-splice-vector-into-arguments-for-function-call
+			%parameters to a function need to be a cell array...
+			params=num2cell(X(:,i).'); %converts X.' to a cell array
+			curSlope(j)=dX_dtFunct{j}(params{:});
 		end
-		X(:,i+1)=X(:,i) + curSlope*timeStep;	 %forward Euler algorithm using vector addition
+		X(:,i+1)=X(:,i) + curSlope .* timeStep;	 %forward Euler algorithm using vector addition
 	end
 
 %debuggin

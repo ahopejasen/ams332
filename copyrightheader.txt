@@ -16,6 +16,9 @@
 % * Prof Giancarlo La Camera
 % as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
+% The code was developed in whole or in part using GNU Octave
+% and testing for MatLab compatibility
+%
 % This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or

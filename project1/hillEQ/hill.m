@@ -63,7 +63,7 @@ title({'Reaction rate vs concentration for hill equation';'using different hill 
 
 %make an array for the legend
 legTxt={''}; %curly brackets for cell array.
-%cell arrays: http://www.mathworks.com/help/matlab/matlab_prog/create-a-cell-array.html
+%cell arrays: <cite>http://www.mathworks.com/help/matlab/matlab_prog/create-a-cell-array.html</cite>
 
 for i=[1:numCoef] 
 	legTxt(i)={strcat('h=',num2str(h(i)))}; %need curly brackets 

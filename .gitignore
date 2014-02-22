@@ -2,3 +2,5 @@
 *.fig
 #ignore jpgs
 *.jpg
+#ignore pdf
+*.pdf

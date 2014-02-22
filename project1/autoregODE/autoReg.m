@@ -1,4 +1,4 @@
-% Simulation of a non-linear system of ODEs
+%% Simulation of a non-linear system of ODEs
 % modeling an autoregulatory gene whose dimeric protein product
 % is a necesary transcription factor.
 %
@@ -6,7 +6,10 @@
 % mRNA transcription rates.
 %
 % A forward Euler algorithm is used to numerically approximate the system.
-
+%
+% todo: grouping plots for the legend is still not working
+% in MatLab, although it works in Octave.
+%<copyright>
 %****************************************************************************
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
 % This file is part of homework for Stony Brook University (SBU)  course
@@ -25,6 +28,9 @@
 % * Prof Giancarlo La Camera
 % as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
+% The code was developed in whole or in part using GNU Octave
+% and testing for MatLab compatibility
+%
 % This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or
@@ -38,8 +44,9 @@
 % You should have received a copy of the GNU General Public License
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
+%</copyright>
 
-%%global constants
+%%initializaton
 
 % equation parameters
 mu=1; % (mM/s) (synthesis constant for mRNA)
@@ -64,7 +71,7 @@ timeStep=0.01; % (s) delta_t for approximation
 i_rna=1;
 i_pro=2;
 
-%%initialize result arrays
+%clear result arrays (the solver functions will dimension them)
 clear('X','timeVector','t_ode','y_ode');
 
 %in case we want to change ode45() parameters:
@@ -79,7 +86,7 @@ for theRun=1:numRuns
 	X0=[r0(theRun);p0(theRun)]; % initial conditions
 
 	% try using anonymous function handles: 
-	% http://www.mathworks.com/help/matlab/ref/function_handle.html
+	% <cite>http://www.mathworks.com/help/matlab/ref/function_handle.html</cite>
 	% so we can pass the expression to different approximation algorithms if
 	% needed....
 		% NOTE: variable values (eg mu, k) are stored as constants
@@ -107,7 +114,7 @@ for theRun=1:numRuns
 	plot(t_ode(:,theRun),y_ode(:,i_rna,theRun),'b+',t_ode(:,theRun),y_ode(:,i_pro,theRun),'g+');
 	legend({'mRNA','protein'},'Location','East');
 	% trick to do multiline title *with* variable values:
-	% http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm
+	% <cite>http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm</cite>
 	title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];'crosses show MatLab ode45() solver';['mu=',num2str(mu),'(mM/s) omega=',num2str(omega),'(1/s) chi\_r=',num2str(chi_r),'(1/s) chi\_p=',num2str(chi_p),'(1/s) k=',num2str(k),'(mM)']})
 	xlabel('time (s)');
 	ylabel('concentration (mM)')
@@ -115,8 +122,11 @@ end
 
 %%project part 3: phase plane
 
-clear('X','timeVector');
-icVector=[0.0:0.2:1.4];%initial concentrations in mM
+clear('X','timeVector','icVector','numRuns');
+%initial concentrations in mM
+icVector=[0.0:0.1:0.2 0.2:0.2:1.4];%shows unstable equil better
+%icVector=[0.0:0.5:1.4];%for quick testing
+%icVector=[0.0:0.2:1.4]; %requested for assignment
 numRuns=size(icVector,2)^2;
 theRun=1; %index variable for X
 figure();
@@ -137,11 +147,30 @@ ylabel('concentration (mM)');
 
 
 %% phase plane plot
-%color showing slope direction
-%red: protein & rna increasing (NorthEast)
-%yellow: protein increasing, rna decreasing (SE)
+
+%phase portrait with color showing slope direction
+%	red: protein & rna increasing (NorthEast)
+%	yellow: protein decreasing, rna increasing (SE)
+%	magenta: protein increasing, rna decreasing (NW)
+%	yellow: protein decreasing, rna decreasing (SW)
+%
+%	Note: for legend tweaking, see:
+%	<cite>http://www.mathworks.com/help/matlab/creating_plots/controlling-legends.html</cite>
 figure();
 hold on;
+
+%graphics handles to group lines according to direction
+%fixme: This is using ideas from the MatLab documentation for
+%grouping legends, but although it works in Octave, it generates
+%a warning and no legend in MatLab itself.
+hNEGroup=hggroup;
+hNWGroup=hggroup;
+hSEGroup=hggroup;
+hSWGroup=hggroup;
+%clear vars used in loop
+clear('XRNA','XProt','dRNA','dProtein','dRNAUp','dProteinUp');
+clear('d_rup_pup','d_rup_pdn','d_rdn_pup','d_rdn_pdn');
+clear('hHandle');
 for theRun=1:numRuns
 	XRNA=squeeze(X(i_rna,:,theRun)); %vector of RNA concentrations over time
 	XProt=squeeze(X(i_pro,:,theRun));  %vector of protein concentration ove time
@@ -153,13 +182,45 @@ for theRun=1:numRuns
 	d_rup_pdn=dRNAUp & ~ dProteinUp; % SE slopes
 	d_rdn_pup= ~ dRNAUp & dProteinUp; % NW slopes
 	d_rdn_pdn= ~ dRNAUp & ~ dProteinUp; % SW slopes
-	plot(XRNA(d_rup_pup).', XProt(d_rup_pup).',':r'); %phase plot of points with NE slope
-	plot(XRNA(d_rup_pdn).', XProt(d_rup_pdn).',':y'); %SE slopes
-	plot(XRNA(d_rdn_pup).', XProt(d_rdn_pup).',':m'); %NW
-	plot(XRNA(d_rdn_pdn).', XProt(d_rdn_pdn).',':b'); %SW
+
+	hHandle=plot(XRNA(d_rup_pup).', XProt(d_rup_pup).','-r'); %phase plot of points with NE slope
+	if (hHandle) %group it
+		set(hHandle,'Parent',hNEGroup);
+	end
+	hHandle=plot(XRNA(d_rup_pdn).', XProt(d_rup_pdn).','-y'); %SE slopes
+	if (hHandle) %group it
+		set(hHandle,'Parent',hSEGroup);
+	end
+	hHandle=plot(XRNA(d_rdn_pup).', XProt(d_rdn_pup).','-m'); %NW
+	if (hHandle) %group it
+		set(hHandle,'Parent',hNWGroup);
+	end
+	hHandle=plot(XRNA(d_rdn_pdn).', XProt(d_rdn_pdn).','-b'); %SW
+	if (hHandle) %group it
+		set(hHandle,'Parent',hSWGroup);
+	end
 end
+
+
+%set legends
+legend('RNA up, Prot up (NE)', ...
+	'RNA down, Prot up (NW)', ...
+	'RNA up, Prot down (SE)', ...
+	'RNA down, Prot down (SW)');
+legend('Location','SouthOutside');
+
+%plot nullclines
+clear('nullcline','nullClineRange')
+nullcline{1}=@(p) mu .* p .^ 2 ./ (chi_r .* (k .^ 2 + p .^ 2)) ;
+nullcline{2}=@(r) omega .* r ./  chi_p ;
+nullClineRange=[0:0.001:1.4];
+plot(nullClineRange,nullcline{2}(nullClineRange),'-k');
+plot(nullcline{1}(nullClineRange), nullClineRange,'-k');
 xlabel('mRNA (mM)');
 ylabel('protein (mM)');
-title('Phase portrait of autoregulatory simulation');
-%todo flesh-out chart titles, add color legend to phase portrait
+title({'Phase portrait of autoregulatory simulation'; ...
+	'Trajectory color shows direction (see legend)'; ...
+	'Nullclines in Black'});
+%todo flesh-out chart titles
 hold off;
+

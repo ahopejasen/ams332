@@ -1,4 +1,4 @@
-% forward Euler algotihm
+%% forward Euler algotihm
 % function [timeVect,X] doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep);
 % Returns:
 %	X:  mxn matrix, m where corresponds to the number
@@ -12,7 +12,7 @@
 %	X0 is mx1 initial condition vector
 %
 % inputs are not checked for sanity, use at your own risk.
-
+%<copyright>
 %****************************************************************************
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
 % This file is part of homework for Stony Brook University (SBU)  course
@@ -31,6 +31,9 @@
 % * Prof Giancarlo La Camera
 % as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
+% The code was developed in whole or in part using GNU Octave
+% and testing for MatLab compatibility
+%
 % This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or
@@ -44,6 +47,7 @@
 % You should have received a copy of the GNU General Public License
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
+%</copyright>
 
 function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 
@@ -71,7 +75,7 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 	%iterate       
 	for (i=1:NUM_STEPS-1) %loop to find i+1th value based on ith val
 		for j=[1:NUM_VARS]
-			%trying this: http://stackoverflow.com/questions/11461963/matlab-splice-vector-into-arguments-for-function-call
+			%trying this: <cite>http://stackoverflow.com/questions/11461963/matlab-splice-vector-into-arguments-for-function-call</cite>
 			%parameters to a function need to be a cell array...
 			params=num2cell(X(:,i).'); %converts X.' to a cell array
 			curSlope(j)=dX_dtFunct{j}(params{:});

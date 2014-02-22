@@ -183,19 +183,19 @@ for theRun=1:numRuns
 	d_rdn_pup= ~ dRNAUp & dProteinUp; % NW slopes
 	d_rdn_pdn= ~ dRNAUp & ~ dProteinUp; % SW slopes
 
-	hHandle=plot(XRNA(d_rup_pup).', XProt(d_rup_pup).','-r'); %phase plot of points with NE slope
+	hHandle=plot(XProt(d_rup_pup).',XRNA(d_rup_pup).' ,'-r'); %phase plot of points with NE slope
 	if (hHandle) %group it
 		set(hHandle,'Parent',hNEGroup);
 	end
-	hHandle=plot(XRNA(d_rup_pdn).', XProt(d_rup_pdn).','-y'); %SE slopes
+	hHandle=plot( XProt(d_rup_pdn).',XRNA(d_rup_pdn).','-y'); %SE slopes
 	if (hHandle) %group it
 		set(hHandle,'Parent',hSEGroup);
 	end
-	hHandle=plot(XRNA(d_rdn_pup).', XProt(d_rdn_pup).','-m'); %NW
+	hHandle=plot( XProt(d_rdn_pup).',XRNA(d_rdn_pup).','-m'); %NW
 	if (hHandle) %group it
 		set(hHandle,'Parent',hNWGroup);
 	end
-	hHandle=plot(XRNA(d_rdn_pdn).', XProt(d_rdn_pdn).','-b'); %SW
+	hHandle=plot( XProt(d_rdn_pdn).',XRNA(d_rdn_pdn).','-b'); %SW
 	if (hHandle) %group it
 		set(hHandle,'Parent',hSWGroup);
 	end
@@ -204,20 +204,25 @@ end
 
 %set legends
 legend('RNA up, Prot up (NE)', ...
-	'RNA down, Prot up (NW)', ...
-	'RNA up, Prot down (SE)', ...
+	'RNA down, Prot up (SE)', ...
+	'RNA up, Prot down (NW)', ...
 	'RNA down, Prot down (SW)');
 legend('Location','SouthOutside');
 
 %plot nullclines
 clear('nullcline','nullClineRange')
-nullcline{1}=@(p) mu .* p .^ 2 ./ (chi_r .* (k .^ 2 + p .^ 2)) ;
-nullcline{2}=@(r) omega .* r ./  chi_p ;
+
+nullcline{i_rna}=@(p) mu .* p .^ 2 ./ (chi_r .* (k .^ 2 + p .^ 2)) ;
+%corresponds to y=f(x)
+
+nullcline{i_pro}=@(r) omega .* r ./  chi_p ;
+%corresponds to x=f(y): need to plot flipped
+
 nullClineRange=[0:0.001:1.4];
-plot(nullClineRange,nullcline{2}(nullClineRange),'-k');
-plot(nullcline{1}(nullClineRange), nullClineRange,'-k');
-xlabel('mRNA (mM)');
-ylabel('protein (mM)');
+plot(nullcline{i_pro}(nullClineRange),nullClineRange,'-k'); 
+plot(nullClineRange,nullcline{i_rna}(nullClineRange), '-k');
+xlabel('protein (mM)');
+ylabel('mRNA (mM)');
 title({'Phase portrait of autoregulatory simulation'; ...
 	'Trajectory color shows direction (see legend)'; ...
 	'Nullclines in Black'});

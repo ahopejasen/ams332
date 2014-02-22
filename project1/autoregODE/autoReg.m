@@ -49,45 +49,65 @@ chi_p=1; % (1/s) (degradation constant for protein)
 k=0.33; % (mM) (ligand concentration that occupies 50% of binding sites)
 
 % initial conditions
-r0=0.5; % (mM) starting mRNA concentration
-p0=0.5; % (mM) starting protein concentration
+r0=[0.5,0.0,0.0,0.2,0.5]; % (mM) starting mRNA concentration
+p0=[0.5,0.2,0.5,0.0,0.0]; % (mM) starting protein concentration
+numRuns=size(r0,2); 
+numVars=2; %number of independent variables (mRNA & Protein)
+assert(size(p0,2)==numRuns); %make sure initial condition vectors are same size
 
 % numerical approximation parameters
 startTime=0; % (s)
 endTime=20; % (s)
 timeStep=0.01; % (s) delta_t for approximation
 
-% simulation variables
-X0=[r0;p0]; % initial conditions
-
-% try using anonymous function handles: 
-% http://www.mathworks.com/help/matlab/ref/function_handle.html
-% so we can pass the expression to different approximation algorithms if
-% needed....
-% NOTE: variable values (eg mu, k) are stored as constants
-% in the funtion handle when it is declared, and persist when
-% the handle is passed to another function
-dr_dt=@(r,p) mu*p^2/(k^2 + p^2) - chi_r*r; % mRNA rate of change
-dp_dt=@(r,p) omega*r - chi_p*p; % protein rate of change
-
-dX_dt={dr_dt; dp_dt}; % this is a cell-array of function handles
-
-[timeVector,X]=doForwardEuler(dX_dt,X0,startTime,endTime,timeStep);
-
-% compare with MatLab ODE45 (a runge-kutta method)
-dy_dt=@(t,y) [mu *y(2)^2/(k^2 + y(2)^2) - chi_r * y(1);omega * y(1) - chi_p * y(2)]; 
-[t,y]=ode45(dy_dt,[startTime:endTime],X0);
+%%initialize result arrays
+%my results
+%X=zeros(numVars,1,numRuns); % vars x time x runs
+%timeVector=zeros(1,numRuns); %  time x runs
+%matlab's ODE results
+%t_ode=zeros(1,numRuns);
+%y_ode=zeros(1,1,numRuns);
 
 
-plot(timeVector.',X.'); %plot() wants column vectors
-hold on;
-%plot ode45 as crosses
-plot(t,y(:,1),'b+',t,y(:,2),'g+');
-legend({'mRNA','protein'},'Location','East');
-% trick to do multiline title *with* variable values:
-% http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm
-title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];['mu=',num2str(mu),'(mM/s) omega=',num2str(omega),'(1/s) chi\_r=',num2str(chi_r),'(1/s) chi\_p=',num2str(chi_p),'(1/s) k=',num2str(k),'(mM)'];'Crosses show MatLab ode45() solver'})
-xlabel('time (s)');
-ylabel('concentration (mM)')
-hold off;
+op=odeset();
+%op.RelTol=0.000001;
+%op.AbsTol=0.000001;
+%op.NonNegative=1;
+%% run the approximation algorithms, once for each set of IC's
+for theRun=1:numRuns
+	X0=[r0(theRun);p0(theRun)]; % initial conditions
 
+	% try using anonymous function handles: 
+	% http://www.mathworks.com/help/matlab/ref/function_handle.html
+	% so we can pass the expression to different approximation algorithms if
+	% needed....
+		% NOTE: variable values (eg mu, k) are stored as constants
+		% in the funtion handle when it is declared, and persist when
+		% the handle is passed to another function
+	dr_dt=@(r,p) mu*p^2/(k^2 + p^2) - chi_r*r; % mRNA rate of change
+	dp_dt=@(r,p) omega*r - chi_p*p; % protein rate of change
+
+	dX_dt={dr_dt; dp_dt}; % this is a cell-array of function handles
+
+	[timeVector(:,theRun),X(:,:,theRun)]=doForwardEuler(dX_dt,X0,startTime,endTime,timeStep);
+
+	% compare with MatLab ODE45 (a runge-kutta method)
+	dy_dt=@(t,y) [mu *y(2)^2/(k^2 + y(2)^2) - chi_r * y(1);omega * y(1) - chi_p * y(2)]; 
+	[t_ode(:,theRun),y_ode(:,:,theRun)]=ode45(dy_dt,[startTime:0.5:endTime],X0,op);
+end %run
+
+
+%%plot results
+for theRun=1:numRuns
+	figure();
+	hold on;
+	plot(timeVector(:,theRun).',X(:,:,theRun.')); %plot() wants column vectors
+	%plot ode45 as crosses
+	plot(t_ode(:,theRun),y_ode(:,1,theRun),'b+',t_ode(:,theRun),y_ode(:,2,theRun),'g+');
+	legend({'mRNA','protein'},'Location','East');
+	% trick to do multiline title *with* variable values:
+	% http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm
+	title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];'crosses show MatLab ode45() solver';['mu=',num2str(mu),'(mM/s) omega=',num2str(omega),'(1/s) chi\_r=',num2str(chi_r),'(1/s) chi\_p=',num2str(chi_p),'(1/s) k=',num2str(k),'(mM)']})
+	xlabel('time (s)');
+	ylabel('concentration (mM)')
+end

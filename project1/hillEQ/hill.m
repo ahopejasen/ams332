@@ -1,3 +1,14 @@
+%% vectorized hill function
+% function result = hill(h,vMax,k,substrateRange)
+% inputs: 
+%		h (1xm)
+%		vMax (scalar)
+%		k (scalar)
+%		substrateRange (n,1) 
+% outputs:
+%		result(n,m)
+
+%<copyright>
 %****************************************************************************
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
 % This file is part of homework for Stony Brook University (SBU)  course
@@ -16,6 +27,9 @@
 % * Prof Giancarlo La Camera
 % as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
+% The code was developed in whole or in part using GNU Octave
+% and testing for MatLab compatibility
+%
 % This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or
@@ -29,45 +43,14 @@
 % You should have received a copy of the GNU General Public License
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
-
-
-
-%plotting Hill eq
-
-%constants
-h=[1 2 10]; %exponent of Hill eq (# of subunits)
-numCoef=size(h,2); %number of hill coefficients
-vMax=5.0; % units mM/s
-k=20.0; % units mM
-substrateStep=0.1; %step size for subtrate range
-
-%use column vecor for substrate concentrations for easy plotting
-% [:].' gives a col vector
-substrateRange=[0:substrateStep:100].'; % units mM 
-numSteps=size(substrateRange,1); %height of array
+%</copyright>
+%h=[1 2 10]; %exponent of Hill eq (# of subunits)
+%vMax=5.0; % units mM/s
+%k=20.0; % units mM
 
 %result array, one column per hill coefficient
-result=zeros(numSteps,numCoef);
-
-
-for i=[1:numCoef] %iterate over hill exponents
-	for j = [1:numSteps]
-		conc=substrateRange(j); %current concentration
-		result(j,i)=vMax*conc^i/(k^i + conc^i); %hill eq. Units: mM/s
-	end %concentrations
-		
-end %hill 
-
-plot(substrateRange,result);
-title({'Reaction rate vs concentration for hill equation';'using different hill coefficients.';['Substrate concentration step size: ',num2str(substrateStep),' mM']});
-
-%make an array for the legend
-legTxt={''}; %curly brackets for cell array.
-%cell arrays: <cite>http://www.mathworks.com/help/matlab/matlab_prog/create-a-cell-array.html</cite>
-
-for i=[1:numCoef] 
-	legTxt(i)={strcat('h=',num2str(h(i)))}; %need curly brackets 
-end
-legend(legTxt,'location','east');
-xlabel('Concentration (mM)');
-ylabel('Reaction rate (mM/s)');
+%result=zeros(numSteps,numCoef);
+function result = hill(h,vMax,k,substrateRange)
+	subExp=substrateRange.^h; 
+	result=vMax.*subExp ./(k.^h + subExp);%hill eq. Units: mM/s
+end %hill()

@@ -50,16 +50,24 @@
 	
 function hillEQ()
 	%constants
+	kDef=20.0; %(mM) default value
+	vMaxDef=5.0; %(mM/s) default
+	hDef=2; % Hill coefficient dfault	
 	substrateStep=0.1; %step size for subtrate range
-	theTitle={'Reaction rate vs concentration for hill equation';'using different hill coefficients.';['Substrate concentration step size: ',num2str(substrateStep),' mM']};
-	h=[1 2 10];%exponent of Hill eq (# of subunits) 
+	theTitle={'Reaction rate vs concentration for hill equation'; ...
+		'using different hill coefficients.'; ...
+		['step size= ',num2str(substrateStep), ...
+			'(mM); k=',num2str(kDef), ...
+			'(mM); vMax=',num2str(vMaxDef),'(mM/s)'] };
 
+
+	h=[1 2 10];%exponent of Hill eqn
 	%we repeat solving eq and plotting it three times
 	%so lets use a local function for all that...
 	%Try passing it a struct containing all parameters needed
 	stHill=struct( 'h',h, ... %exponent of Hill eq (# of subunits)
-			'vMax',5.0, ... % units mM/s
-			'k',20.0, ... % units mM (concentration where rate=1/2 vMax)
+			'vMax',vMaxDef, ... % units mM/s
+			'k',kDef, ... % units mM (concentration where rate=1/2 vMax)
 			'sR',[0:substrateStep:100].', ... % units mM (col vector)
 			'cTitle',theTitle, ... %plot title
 			'legChar','h',... %character to use for legend
@@ -67,14 +75,6 @@ function hillEQ()
 					%goes here again so that hillPlot(stHill) will
 					%know what to use for the legend
 
-	%numCoef=size(stHill.h,2); %number of hill coefficients
-		%^^DOesn't work because member 'cTitle' is a cell array,
-		%which makes stHill a struct array
-		%so we have to index into it. :-/
-		%the non cell-array elements get broadcast, so it 
-		%doesn't matter what index to use
-	numCoef=size(stHill(1).h,2); %number of hill coefficients
-	numSteps=size(stHill(1).sR,1); %height of array
 
 	%result array, one column per hill coefficient
 	clear('vResult','hPlot');
@@ -89,14 +89,18 @@ function hillEQ()
 
 	%%part 2 iterate over k
 
-	stHill(1).h=2; %will this clear the former array?
+	stHill(1).h=hDef; %will this clear the former array?
 	stHill(1).k=[10.0 20.0 40.0]; % units mM (concentration where rate=1/2 vMax)
 	stHill(1).legChar='k'; %character to use for legend
 	stHill(1).itVar=stHill(1).k; %whichever parameter gets iterated over
 	%stHill.cTitle=theTitle; ... %plot title
 	clear('vResult','hPlot');
 	[hPlot,vResult]=hillPlot(stHill); %local function caclulates and  plots data
-	theTitle={'Reaction rate vs concentration for hill equation';'using different k coefficients.';['Substrate concentration step size: ',num2str(substrateStep),' mM']};
+	theTitle={'Reaction rate vs concentration for hill equation'; ...
+		'using different k coefficients.'; ...
+		['step size= ',num2str(substrateStep), ...
+			'(mM); h=',num2str(hDef), ...
+			'; vMax=',num2str(vMaxDef),'(mM/s)'] };
 	title(theTitle);
 
 
@@ -110,7 +114,15 @@ function hillEQ()
 	%stHill.cTitle=theTitle; ... %plot title
 	clear('vResult','hPlot');
 	[hPlot,vResult]=hillPlot(stHill); %local function caclulates and  plots data
-	theTitle={'Reaction rate vs concentration for hill equation';'using different vMax coefficients.';['Substrate concentration step size: ',num2str(substrateStep),' mM']};
+	theTitle={'Reaction rate vs concentration for hill equation'; ...
+		'using different vMax coefficients.'; ...
+		['Substrate concentration step size: ',num2str(substrateStep),' mM']; ...
+		['h=',num2str(hDef),':k=',num2str(kDef),'(mM)'] };
+	theTitle={'Reaction rate vs concentration for hill equation'; ...
+		'using different vMax coefficients.'; ...
+		['step size= ',num2str(substrateStep), ...
+			'(mM); h=',num2str(hDef), ...
+			'; k=',num2str(kDef),'(mM)'] };
 	title(theTitle);
 end %function hillEQ()
 

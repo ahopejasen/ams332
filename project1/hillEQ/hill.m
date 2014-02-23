@@ -51,6 +51,16 @@
 %result array, one column per hill coefficient
 %result=zeros(numSteps,numCoef);
 function result = hill(h,vMax,k,substrateRange)
-	subExp=substrateRange.^h; 
-	result=vMax.*subExp ./(k.^h + subExp);%hill eq. Units: mM/s
+	%subExp=substrateRange.^h; 
+	%result=vMax.*subExp ./(k.^h + subExp);%hill eq. Units: mM/s
+	%GNU Octave does BSX (broadcasting) automatically
+	%so the above just works. MatLab has bsxfun():
+	%<cite>http://www.mathworks.com/help/matlab/ref/bsxfun.html</cite>
+	sE=bsxfun(@power,substrateRange,h); %
+	sV=bsxfun(@times,vMax,sE);
+	kH=bsxfun(@power,k,h);
+	kHsE=bsxfun(@plus,kH,sE);
+	result=bsxfun(@rdivide,sV,kHsE);%hill eq. Units: mM/s
+	
+	
 end %hill()

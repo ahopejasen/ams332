@@ -122,6 +122,7 @@ for theRun=1:numRuns
 	legend({'mRNA','protein'},'Location','East');
 	% trick to do multiline title *with* variable values:
 	% <cite>http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm</cite>
+	% <cite>http://www.mathworks.com/matlabcentral/answers/93295</cite>
 	title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];'crosses show MatLab ode45() solver';['mu=',num2str(mu),'(mM/s) omega=',num2str(omega),'(1/s) chi\_r=',num2str(chi_r),'(1/s) chi\_p=',num2str(chi_p),'(1/s) k=',num2str(k),'(mM)']})
 	xlabel('time (s)');
 	ylabel('concentration (mM)')
@@ -131,9 +132,9 @@ end
 
 clear('X','timeVector','icVector','numRuns');
 %initial concentrations in mM
-icVector=[0.0:0.1:0.2 0.2:0.2:1.4];%shows unstable equil better
+%icVector=[0.0:0.05:0.4 0.6:0.2:1.4];%shows unstable equil better
 %icVector=[0.0:0.5:1.4];%for quick testing
-%icVector=[0.0:0.2:1.4]; %requested for assignment
+icVector=[0.0:0.2:1.4]; %requested for assignment
 numRuns=size(icVector,2)^2;
 theRun=1; %index variable for X
 figure();
@@ -230,9 +231,15 @@ plot(nullcline{i_pro}(nullClineRange),nullClineRange,'-k');
 plot(nullClineRange,nullcline{i_rna}(nullClineRange), '-k');
 xlabel('protein (mM)');
 ylabel('mRNA (mM)');
-title({'Phase portrait of autoregulatory simulation'; ...
+%Multiline title trick:<cite>http://www.mathworks.com/matlabcentral/answers/93295</cite>
+hT=title({'Phase portrait of autoregulatory simulation'; ...
 	'Trajectory color shows direction (see legend)'; ...
 	'Nullclines in Black'});
+axpos = get(gca,'pos');
+set(hT,'units','normalized');
+extent = get(hT,'extent');
+set(gca,'pos',[axpos(1) axpos(2) axpos(3) axpos(4)-0.66*extent(4)]);
+
 %todo flesh-out chart titles
 hold off;
 

@@ -1,5 +1,7 @@
 #ignore matlab figures
 *.fig
+#ignore png
+*.png
 #ignore jpgs
 *.jpg
 #ignore pdf

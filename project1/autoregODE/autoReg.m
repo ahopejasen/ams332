@@ -45,6 +45,13 @@
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
 %</copyright>
+%todo: some warnings in MatLab:
+%Warning: Plot empty. 
+%> In legend at 286
+  %In autoReg at 213 
+%Warning: Plot empty. 
+%> In legend at 286
+  %In autoReg at 210 
 
 %%initializaton
 

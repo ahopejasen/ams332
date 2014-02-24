@@ -1,22 +1,26 @@
 %test of forward Euler algotihm
-
+%
+%<acknowlegments>
+% All code in this file, unless otherwise noted in comments, is 
+% written by the following contrbutors from AMS332:
+% * A. Hope Jasentuliyana, SBU ID 100043659
+%</acknowlegments>
+%
+% git tag: handin1.0 was handed in for grade credit.
+%
+%<copyright>
 %****************************************************************************
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
 % This file is part of homework for Stony Brook University (SBU)  course
 % AMS332, Spring 2014.
 %
 % Latest version of source should be available at: 
-% https://github.com/ahopejasen/ams332.git
+% http://github.com/ahopejasen/ams332.git
 % 
-% All code in this file, unless otherwise noted in comments, is 
-% written by the following contrbutors from AMS332:
-% * A. Hope Jasentuliyana, SBU ID 100043659
-%
 % Resources used include class notes, handouts, and lectures given in
 % SBU course AMS 332, Spring 2014 by:
 % * Prof David Green
 % * Prof Giancarlo La Camera
-% as well as MatLab documentation at: http://www.mathworks.com/help/matlab
 %
 % This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -31,6 +35,7 @@
 % You should have received a copy of the GNU General Public License
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
+%</copyright>
 
 %globals (should be consts, but MatLab doesn't do const w/o classes)
 NUM_STEPS= 100; %steps to iterate

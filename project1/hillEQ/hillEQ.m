@@ -1,4 +1,11 @@
 %% Script to explore hill equation
+%<acknowlegments>
+% All code in this file, unless otherwise noted in comments, is 
+% written by the following contrbutors from AMS332:
+% * A. Hope Jasentuliyana, SBU ID 100043659
+%</acknowlegments>
+%
+% git tag: handin1.0 was handed in for grade credit.
 %<copyright>
 %****************************************************************************
 % Copyright (c) 2014,  A. Hope Jasentuliyana.  All rights reserved.
@@ -6,20 +13,12 @@
 % AMS332, Spring 2014.
 %
 % Latest version of source should be available at: 
-% https://github.com/ahopejasen/ams332.git
+% http://github.com/ahopejasen/ams332.git
 % 
-% All code in this file, unless otherwise noted in comments, is 
-% written by the following contrbutors from AMS332:
-% * A. Hope Jasentuliyana, SBU ID 100043659
-%
 % Resources used include class notes, handouts, and lectures given in
 % SBU course AMS 332, Spring 2014 by:
 % * Prof David Green
 % * Prof Giancarlo La Camera
-% as well as MatLab documentation at: http://www.mathworks.com/help/matlab
-%
-% The code was developed in whole or in part using GNU Octave
-% and testing for MatLab compatibility
 %
 % This file is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by

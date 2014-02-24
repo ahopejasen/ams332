@@ -16,5 +16,8 @@ copyrightFile="${toolsDir}/copyrightheader.txt"
 
 #inplace:
 find . -name '*.m' -print0 | xargs -0 sed  -i.copybak "/<copyright>/,/<\/copyright>/ {\%</\?copyright>%! d}
-							 /<copyright>/ r ${copyrightFile}"
+	 /<copyright>/ r ${copyrightFile}"
+
+#REMOVE COPYRIGHT ONLY
+#find . -name '*.m' -print0 | xargs -0 sed  -i.copybak "/<copyright>/,/<\/copyright>/ {\%</\?copyright>%! d}"
 

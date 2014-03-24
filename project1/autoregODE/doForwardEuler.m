@@ -1,5 +1,6 @@
 %% forward Euler algotihm
-% function [timeVect,X] doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep);
+% function [timeVect,X] doForwardEuler(dX_dtFunct,X0,startTime,...
+%			endTime,timeStep,noNegative);
 % Returns:
 %	X:  mxn matrix, m where corresponds to the number
 %		of dependent variables in the system
@@ -10,6 +11,8 @@
 %	dX_dtFunct is a mx1 cell-array of function handles corresponding to 
 %		rates of change for each dependent var.
 %	X0 is mx1 initial condition vector
+%	noNegative: optional boolean parameter, defaulting to 0. If true, 
+%		all dependant vars are constrained to >= 0.
 %
 % inputs are not checked for sanity, use at your own risk.
 %<acknowlegments>
@@ -49,7 +52,7 @@
 %***************************************************************************/
 %</copyright>
 
-function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
+function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep,noNegative)
 
 
 	%sanity checking 
@@ -61,6 +64,12 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 		error('invalid times passed to doForwardEuler: start %d, end %d, step %d',startTime,endTime,timeStep);
 	end 
 
+
+	if ~exist('noNegative','var')|| isempty(noNegative) %this parameter is optional
+		noNegative=0; %by default negative values are allowed;
+	end
+
+
 	%intializations (ALL_CAPS vars should be consts, but MatLab doesn't do const w/o classes)
 
 	%number of intervals between a & b = (b -a) +1:
@@ -70,6 +79,7 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 
 
 	X=zeros(NUM_VARS,NUM_STEPS);
+	curCol=zeros(NUM_VARS,1);
 	X(:,1)=X0;
 	curSlope=zeros(NUM_VARS,1);
 	%iterate       
@@ -81,6 +91,11 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep)
 			curSlope(j)=dX_dtFunct{j}(params{:});
 		end
 		X(:,i+1)=X(:,i) + curSlope .* timeStep;	 %forward Euler algorithm using vector addition
+		if noNegative
+			curCol=X(:,i+1);
+			curCol(curCol<0)=0;
+			X(:,i+1)=curCol; %set any negative values to zero
+		end
 	end
 
 %debuggin

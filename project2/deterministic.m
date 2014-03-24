@@ -80,8 +80,8 @@ kCro=10; % (molecules/cell) (Cro protein concentration that occupies 50% of bind
 % cro equation
 muCro=50; % (molecules/(cell*sec)) (synthesis constant for cro RNA)
 xCroRna=0.8; % (1/s)  (degradation constant for cro RNA)
-xCroPro=0.8; % (1/s) (degradation constant for cro protein)
 wCro=50; % (1/s) (synthesis constant for cro protein)
+xCroPro=0.8; % (1/s) (degradation constant for cro protein)
 kCI=10; %  (molecules/cell) (cI protein concentration that occupies 50% of binding sites on cro dna)
 	% this is not an error: kCro is used in the equation for cI
 
@@ -93,46 +93,54 @@ hill2=@(k,x) x.^2./(k.^2 + x.^2);
 % initial conditions
 cIRna=[0,50,0]; % (molecules/cell) starting cI mRNA concentration
 cIPro=[0,0,0]; % (molecules/cell) starting cI protein concentration
-croRna=[0,0,20]; % (molecules/cell) starting cro mRNA concentration
-croPro=[0,0,0]; % (molecules/cell) starting cro protein concentration
+croRna=[0,0,00]; % (molecules/cell) starting cro mRNA concentration
+croPro=[0,0,20]; % (molecules/cell) starting cro protein concentration
+%cIRna=[50]; % (molecules/cell) starting cI mRNA concentration
+%cIPro=[0]; % (molecules/cell) starting cI protein concentration
+%croRna=[0]; % (molecules/cell) starting cro mRNA concentration
+%croPro=[0]; % (molecules/cell) starting cro protein concentration
 
 
 numRuns=size(cIRna,2); 
 numVars=4; %number of independent variables (cImRNA cIProtein, croRNA, croPRot)
 %make sure initial condition vectors are same column size:
-assert(size(cIRna,2)==size(cIProt,2)==size(croRna,2)==size(croProt,2)==numRuns); 
+assert(size(cIRna,2)==numRuns && size(cIPro,2)== numRuns && ...
+	 size(croRna,2)==numRuns && size(croPro,2)  == numRuns); 
 
 % numerical approximation parameters
 startTime=0; % (s)
 endTime=20; % (s)
-timeStep=0.01; % (s) delta_t for approximation
+timeStep=0.001; % (s) delta_t for approximation
+%constant passed to doForwardEuler that forces values to be non-negative
+noNegative=1;
+
+%in case we want to change ode45() parameters:
+odeOptions=odeset('NonNegative',[1,1,1,1]);
+odeOptions.RelTol=0.001;
+odeOptions.AbsTol=0.001;
+%odeOptions.NonNegative=1;
 
 % for notational convenience I describing the system using vector notation
 % dX_dt=A(X); X(0)=X0; where X is a 4-vector, and A(X) is a vector function.
 % the following constants allow me to use meaningful indices for the vectors:
-_ir=1; %cI rna
-_ip=2; % cI protein
-_or=3; %cro RNA
-_op=4; %cro protein
+n_ir=1; %cI rna
+n_ip=2; % cI protein
+n_or=3; %cro RNA
+n_op=4; %cro protein
 
 %put all initial condintions into a matrix
 %rows are molecule types, cols are runs with different 
 %starting conditions.
-IC(_ir)=cIRna;
-IC(_ip)=cIPro
-IC(_or)=croRna
-IC(_op)=croPro;
+IC(n_ir,:)=cIRna;
+IC(n_ip,:)=cIPro;
+IC(n_or,:)=croRna;
+IC(n_op,:)=croPro;
 
 %clear result arrays 
 %(the solver functions they are passed to will re-dimension them to the proper size)
-clear('X','timeVector','t_ode','y_ode');
+clear('X','timeVector','t_ode','y_ode','odeSol');
 
 
-%in case we want to change ode45() parameters:
-odeOptions=odeset();
-%odeOptions.RelTol=0.001;
-%odeOptions.AbsTol=0.001;
-%odeOptions.NonNegative=1;
 
 %% Project Part 1
 %run the approximation algorithms, once for each set of IC's
@@ -145,29 +153,34 @@ for theRun=1:numRuns
 		% NOTE: variable values (eg mu, k) are stored as constants
 		% in the funtion handle when it is declared, and persist when
 		% the handle is passed to another function
-	dIr_dt=@(ciR,croP) muCI.*(1- hill2(kCro,croP)) - xCIRna .*ciR;% cI mRNA rate of change 
+	dIr_dt=@(ciR,ciP,croR,croP) muCI.*(1- hill2(kCro,croP)) - xCIRna .*ciR;% cI mRNA rate of change 
 			% *YES* it should be kCro and croP here, for the cI eq.
-	dIp_dt=@(ciR,ciP) wCI.*ciR - xCIPro.*ciP; % cI protein rate of change
-	dRr_dt=@(croR,croC) muCro.*(1- hill2(kCI,ciP)) - xCroRna .*croR; % cro mRNA rate of change
+	dIp_dt=@(ciR,ciP,croR,croP) wCI.*ciR - xCIPro.*ciP; % cI protein rate of change
+	dRr_dt=@(ciR,ciP,croR,croP) muCro.*(1- hill2(kCI,ciP)) - xCroRna .*croR; % cro mRNA rate of change
 			% *YES* it should be kCI and ciP here, for the cro eq.
-	dRp_dt=@(croR,croP) wCro.*croR - xCroPro.*croP; % cro protein rate of change
+	dRp_dt=@(ciR,ciP,croR,croP) wCro.*croR - xCroPro.*croP; % cro protein rate of change
 
 	%make an cell-array of the function handles, to pass to the solver
-	dX_dt={_ir,1}=dIr_dt;
-	dX_dt={_ip,1}=dIp_dt;
-	dX_dt={_or,1}=dRr_dt;
-	dX_dt={_op,1}=dRp_dt;
+	dX_dt{n_ir,1}=dIr_dt;
+	dX_dt{n_ip,1}=dIp_dt;
+	dX_dt{n_or,1}=dRr_dt;
+	dX_dt{n_op,1}=dRp_dt;
 
 	%select the initial condition vector for this run from the IC matrix:
-	X0=IC(theRun);
+	X0=IC(:,theRun);
 	
 	%call doForwardEuler() to simulate a run
-	[timeVector(:,theRun),X(:,:,theRun)]=doForwardEuler(dX_dt,X0,startTime,endTime,timeStep);
+	[timeVector(:,theRun),X(:,:,theRun)]=doForwardEuler(dX_dt,X0,startTime,endTime,timeStep,noNegative);
 
 	% same thing but compare with MatLab ODE45 (a runge-kutta method)
-	%dy_dt(_ir)=@(t,y) mu *(1 - hill2(kCro,y(_op)) ) - xCIRna * y(_ir);
-	%dy_dt(_ip)=omega * y(i_rna) - chi_p * y(i_pro)]; 
+	dy_dt= @(t,y) [ muCI *(1 - hill2(kCro,y(n_op)) ) - xCIRna * y(n_ir); ...
+			wCI * y(n_ir) - xCIPro * y(n_ip); ...
+			muCro *(1 - hill2(kCI,y(n_ip)) ) - xCroRna * y(n_or); ...
+			wCro * y(n_or) - xCroPro * y(n_op) ];
 	%[t_ode(:,theRun),y_ode(:,:,theRun)]=ode45(dy_dt,[startTime:0.5:endTime],X0,odeOptions);
+	odeSol=ode45(dy_dt,[startTime,endTime],X0,odeOptions);
+	t_ode(:,theRun)=startTime:0.5:endTime;
+	y_ode(:,:,theRun)=deval(odeSol,t_ode(:,theRun));
 end %run
 
 
@@ -175,16 +188,20 @@ end %run
 for theRun=1:numRuns
 	figure();
 	hold on;
-	plot(timeVector(:,theRun).',X(:,:,theRun.')); %plot() wants column vectors
+	plot(timeVector(:,theRun).',X(:,:,theRun).'); %plot() wants column vectors
 	%plot ode45 as crosses
-	%plot(t_ode(:,theRun),y_ode(:,i_rna,theRun),'b+',t_ode(:,theRun),y_ode(:,i_pro,theRun),'g+');
-	legend({'mRNA','protein'},'Location','East');
+	plot(t_ode(:,theRun),y_ode(:,:,theRun).','+')
+	%	t_ode(:,theRun),y_ode(:,n_ip,theRun).','g+', ...
+	%	t_ode(:,theRun),y_ode(:,n_or,theRun).','r+', ...
+	%	t_ode(:,theRun),y_ode(:,n_op,theRun).','y+');
+	legend({'cI mRNA','cI protein','cro mRNA','cro protein'},'Location','East');
 	% trick to do multiline title *with* variable values:
 	% <cite>http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm</cite>
 	% <cite>http://www.mathworks.com/matlabcentral/answers/93295</cite>
-	title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];'crosses show MatLab ode45() solver';['mu=',num2str(mu),'(mM/s) omega=',num2str(omega),'(1/s) chi\_r=',num2str(chi_r),'(1/s) chi\_p=',num2str(chi_p),'(1/s) k=',num2str(k),'(mM)']})
+	title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];'crosses show MatLab ode45() solver';['mu\_cI=mu\_cro=',num2str(muCI),'(molecules/cell), omega\_cI=omega\_cro=',num2str(wCI),'(1/s)' ];['chi\_cI\_r=chi\_cI\_p',num2str(xCIRna),'(1/s) chi\_cro\_r=chi\_cro\_p=',num2str(xCroRna),'(1/s)'];[' k\_cI=k\_c\_ro=',num2str(kCI),'(molecules/cell)']})
+
 	xlabel('time (s)');
-	ylabel('concentration (mM)')
+	ylabel('concentration (molecules/cell)')
 end
 
 %%project part 3: phase plane

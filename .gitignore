@@ -6,3 +6,8 @@
 *.jpg
 #ignore pdf
 *.pdf
+*.docx
+*.odt
+*.csv
+*.sobj
+*.ods

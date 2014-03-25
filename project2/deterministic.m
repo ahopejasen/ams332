@@ -58,14 +58,14 @@
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
 %</copyright>
-
+function deterministic
 %%initializaton
 
-% add path to ode simulation functions from project1 
+% add path to shared functions from project1 
 % WARN: assumes without checking that these functions will be in SIMDIR
 % <cite>http://www.mathworks.com/matlabcentral/newsreader/view_thread/132505</cite>
-SIMDIR='../project1/autoregODE/';
-STARTPATH=addpath(SIMDIR);
+SHAREDIR='../shared/';
+STARTPATH=addpath(SHAREDIR);
 % TODO: exit code/cleanup should restore STARTPATH
 
 % define constant parameters of the system
@@ -91,14 +91,10 @@ hill2=@(k,x) x.^2./(k.^2 + x.^2);
 
 
 % initial conditions
-cIRna=[0,50,0]; % (molecules/cell) starting cI mRNA concentration
-cIPro=[0,0,0]; % (molecules/cell) starting cI protein concentration
-croRna=[0,0,00]; % (molecules/cell) starting cro mRNA concentration
-croPro=[0,0,20]; % (molecules/cell) starting cro protein concentration
-%cIRna=[50]; % (molecules/cell) starting cI mRNA concentration
-%cIPro=[0]; % (molecules/cell) starting cI protein concentration
-%croRna=[0]; % (molecules/cell) starting cro mRNA concentration
-%croPro=[0]; % (molecules/cell) starting cro protein concentration
+cIRna=[0,0,0,0]; % (molecules/cell) starting cI mRNA concentration
+cIPro=[0,50,0,0]; % (molecules/cell) starting cI protein concentration
+croRna=[0,0,20,0]; % (molecules/cell) starting cro mRNA concentration
+croPro=[0,0,0,20]; % (molecules/cell) starting cro protein concentration
 
 
 numRuns=size(cIRna,2); 
@@ -111,6 +107,7 @@ assert(size(cIRna,2)==numRuns && size(cIPro,2)== numRuns && ...
 startTime=0; % (s)
 endTime=20; % (s)
 timeStep=0.001; % (s) delta_t for approximation
+%timeStep=0.1; % FOR TESTING ONLY
 %constant passed to doForwardEuler that forces values to be non-negative
 noNegative=1;
 
@@ -138,7 +135,7 @@ IC(n_op,:)=croPro;
 
 %clear result arrays 
 %(the solver functions they are passed to will re-dimension them to the proper size)
-clear('X','timeVector','t_ode','y_ode','odeSol');
+clear('X','timeVector','t_ode','y_ode','t_ode_cells','y_ode_cells','odeSol');
 
 
 
@@ -177,11 +174,21 @@ for theRun=1:numRuns
 			wCI * y(n_ir) - xCIPro * y(n_ip); ...
 			muCro *(1 - hill2(kCI,y(n_ip)) ) - xCroRna * y(n_or); ...
 			wCro * y(n_or) - xCroPro * y(n_op) ];
-	%[t_ode(:,theRun),y_ode(:,:,theRun)]=ode45(dy_dt,[startTime:0.5:endTime],X0,odeOptions);
-	odeSol=ode45(dy_dt,[startTime,endTime],X0,odeOptions);
-	t_ode(:,theRun)=startTime:0.5:endTime;
-	y_ode(:,:,theRun)=deval(odeSol,t_ode(:,theRun));
-end %run
+	if (is_octave) %running in octave
+		%[t_ode(:,theRun),y_ode(:,:,theRun)]=ode45(dy_dt,[startTime,endTime],X0,odeOptions);
+		%doesn't word because number of time steps subject to change across runs
+		%need to use cell-arrays
+
+		[t_ode,y_ode]=ode45(dy_dt,[startTime,endTime],X0,odeOptions);
+		t_ode_cells{theRun}=t_ode(:);
+		y_ode_cells{theRun}=y_ode(:,:);
+
+	else %matlab specific
+		odeSol=ode45(dy_dt,[startTime,endTime],X0,odeOptions);
+		t_ode_cells{theRun}=startTime:0.5:endTime;
+		y_ode_cells{theRun}=deval(odeSol,t_ode_cells{theRun});
+	end %octave check
+end %loop over initial conditions
 
 
 %%plot results
@@ -190,19 +197,68 @@ for theRun=1:numRuns
 	hold on;
 	plot(timeVector(:,theRun).',X(:,:,theRun).'); %plot() wants column vectors
 	%plot ode45 as crosses
-	plot(t_ode(:,theRun),y_ode(:,:,theRun).','+')
+	%plot(t_ode(:,theRun),y_ode(:,:,theRun).','+')
+	plot(t_ode_cells{theRun},y_ode_cells{theRun}(:,:),'+')
 	%	t_ode(:,theRun),y_ode(:,n_ip,theRun).','g+', ...
 	%	t_ode(:,theRun),y_ode(:,n_or,theRun).','r+', ...
 	%	t_ode(:,theRun),y_ode(:,n_op,theRun).','y+');
-	legend({'cI mRNA','cI protein','cro mRNA','cro protein'},'Location','East');
+	legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
+	legend(legTxt,'Location','East');
 	% trick to do multiline title *with* variable values:
 	% <cite>http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm</cite>
 	% <cite>http://www.mathworks.com/matlabcentral/answers/93295</cite>
-	title({'Numerical solution to auto-regulatory gene model';['Solid lines show forward Euler with time-step: ',num2str(timeStep),' s'];'crosses show MatLab ode45() solver';['mu\_cI=mu\_cro=',num2str(muCI),'(molecules/cell), omega\_cI=omega\_cro=',num2str(wCI),'(1/s)' ];['chi\_cI\_r=chi\_cI\_p',num2str(xCIRna),'(1/s) chi\_cro\_r=chi\_cro\_p=',num2str(xCroRna),'(1/s)'];[' k\_cI=k\_c\_ro=',num2str(kCI),'(molecules/cell)']})
-
-	xlabel('time (s)');
+	titleTxt1={'Numerical solution to lysis gene model'};
+	titleTxt2={	['Solid lines show forward Euler with time-step: ', ...
+			num2str(timeStep),'s']; ...
+		'crosses show MatLab ode45() solver';};
+	titleTxt3={['ICs: cI_{r}=',num2str(cIRna(theRun)),'  cI_{p}=',num2str(cIPro(theRun)), ...
+			'  cro_{r}=',num2str(croRna(theRun)),  '  cro_{p}=',num2str(croPro(theRun))]; ...
+		['\mu=',num2str(muCI),'  \omega=', num2str(wCI),'  \chi_{cI}=',num2str(xCIRna), ...
+			'  \chi_{cro}=',  num2str(xCroRna), '  k=',num2str(kCI)]};
+	
+	hT=title([titleTxt1;titleTxt2;titleTxt3]);
+	fixTitle(hT);
+    xlabel('time (s)');
 	ylabel('concentration (molecules/cell)')
-end
+    hold off;
 
-%%project part 3: phase plane
-%% phase plane plot
+	%do plotyy to plot variable with largest values on a seperate axis
+	figure();
+    thisX=X(:,:,theRun); %seperating this out allows the nice max(thisX(:)) trick below
+	%see <cite>http://stackoverflow.com/questions/2635120/how-can-i-find-the-maximum-or-minimum-of-a-multi-dimensional-matrix-in-matlab</cite>
+	[xLargest,xPos]=max(thisX(:)); %xPos uses 1-D (collum-major) indexing
+	[maxVarRow,maxTimeCol]=ind2sub(size(thisX),xPos); %convert to 2-d indexing
+	%extract column to plot it on secondary axis
+	maxVar=thisX(maxVarRow,:);
+    otherRows=~ismember(1:numVars,maxVarRow);
+    otherVars=thisX(otherRows,:);
+    [hax,hlines,hmax]=plotyy(timeVector(:,theRun).',otherVars.', ...
+        timeVector(:,theRun).',maxVar.','plot','plot');
+    titleTxt2={['Note second Y-scaling for ',num2str(maxVarRow),'th var']};
+	%give secondary axis var a distinctive color
+	set(hmax,'color',[1,0,1]); %magenta
+	set(hmax,'marker','none');
+	set(hmax,'lineStyle',':');
+	set(hax(2),'ycolor',[1,0,1]);%magenta
+    ht=title([titleTxt1;titleTxt2;titleTxt3]);
+	fixTitle(hT);
+	legend([hlines;hmax],[legTxt(otherRows),legTxt(maxVarRow)],'Location','East');
+	xlabel('time (s)');
+	ylabel(hax(1),'concentration (molecules/cell)')
+	ylabel(hax(2),'concentration (molecules/cell)')
+end %looping over runs to make plots
+end %main function
+
+
+
+%% Utilitiy functions
+
+function fixTitle(hT)
+	%Multiline title
+	%trick:<cite>http://www.mathworks.com/matlabcentral/answers/93295</cite>
+	%prevents title from being cut-off in matlab
+	axpos = get(gca,'pos');
+	set(hT,'units','normalized');
+	extent = get(hT,'extent');
+	set(gca,'pos',[axpos(1) axpos(2) axpos(3) axpos(4)-0.33*extent(4)]);
+end

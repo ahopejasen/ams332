@@ -52,7 +52,7 @@
 %***************************************************************************/
 %</copyright>
 
-function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep,noNegative)
+function [timeVect,X,dX_dt] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep,noNegative)
 
 
 	%sanity checking 
@@ -79,25 +79,33 @@ function [timeVect,X] =doForwardEuler(dX_dtFunct,X0,startTime,endTime,timeStep,n
 
 
 	X=zeros(NUM_VARS,NUM_STEPS);
+	dX_t=zeros(NUM_VARS,NUM_STEPS);
 	curCol=zeros(NUM_VARS,1);
 	X(:,1)=X0;
 	curSlope=zeros(NUM_VARS,1);
 	%iterate       
-	for (i=1:NUM_STEPS-1) %loop to find i+1th value based on ith val
+	for (tStep=1:NUM_STEPS-1) %loop to find tStep+1th value based on ith val
 		for j=[1:NUM_VARS]
 			%trying this: <cite>http://stackoverflow.com/questions/11461963/matlab-splice-vector-into-arguments-for-function-call</cite>
 			%parameters to a function need to be a cell array...
-			params=num2cell(X(:,i).'); %converts X.' to a cell array
+			%TODO num2cell is way slow.... is there a better way??
+			params=num2cell(X(:,tStep).'); %converts X.' to a cell array
 			curSlope(j)=dX_dtFunct{j}(params{:});
 		end
-		X(:,i+1)=X(:,i) + curSlope .* timeStep;	 %forward Euler algorithm using vector addition
+		X(:,tStep+1)=X(:,tStep) + curSlope .* timeStep;	 %forward Euler algorithm using vector addition
+		dX_dt(:,tStep)=curSlope; %save slopes
 		if noNegative
-			curCol=X(:,i+1);
+			curCol=X(:,tStep+1);
 			curCol(curCol<0)=0;
-			X(:,i+1)=curCol; %set any negative values to zero
+			X(:,tStep+1)=curCol; %set any negative values to zero
 		end
 	end
-
-%debuggin
+	%get last slope value (duplicates code in previous loop, but this avoids
+	%having to test for tStep=NUM_STEPS-1 in each loop iteration
+	%or do an extra function call for each iteration
+	for j=[1:NUM_VARS]
+		dX_dt(j,NUM_STEPS)=dX_dtFunct{j}(params{:}); %save slopes
+	end
+		
 
 end %doForwardEuler()

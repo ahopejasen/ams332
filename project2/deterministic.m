@@ -58,8 +58,7 @@
 % along with this file.  If not, see <http://www.gnu.org/licenses/>.
 %***************************************************************************/
 %</copyright>
-function deterministic
-%%initializaton
+%% initializaton
 
 % add path to shared functions from project1 
 % WARN: assumes without checking that these functions will be in SIMDIR
@@ -68,25 +67,45 @@ SHAREDIR='../shared/';
 STARTPATH=addpath(SHAREDIR);
 % TODO: exit code/cleanup should restore STARTPATH
 
+% by definition everything is executed. To turn off specicic parts
+% use doMesh=0; doPart1=0; doPart2=0; prior to executing script
+if ~exist('doMesh','var')
+	doMesh=1;
+	doMesh;
+end
 
-% for notational convenience I describing the system using vector notation
+if ~exist('doPart1','var')
+	doPart1=1;
+end
+
+if ~exist('doPart2','var')
+	doPart2=1;
+end
+
+%% Initialize variables
+P=struct();
+IC=struct();
+vs=struct();
+N=struct();
+theParms=struct('P',P, 'IC',IC','vs',vs,'N',N);
+
+%% for notational convenience I'm describing the system using vector notation
 % dX_dt=A(X); X(0)=X0; where X is a 4-vector, and A(X) is a vector function.
 % the following constants allow me to use meaningful indices for the vectors:
 n_ir=1; %cI rna
 n_ip=2; % cI protein
 n_or=3; %cro RNA
 n_op=4; %cro protein
+numVars=4;
 
-%same thing as a struct 
-vs=struct (  ... %variable names
-	'ir',1, ...
-	'ip',2, ...
-	'o_r',3, ... %avoid 'or' keyword
-	'op',4 ...
-);
-% define constant parameters of the system
-% cI equation
-P=struct ( ...
+%same as above, as a struct, to pass to functions
+theParms.vs.ir=1;
+theParms.vs.ip=2; 
+theParms.vs.o_r=3;%avoiding 'or' keyword
+theParms.vs.op=4;
+
+%% define constant parameters of the simulated system
+theParms.P=struct ( ...
 	'muCI',50, ... % (molecules/(cell*sec)) (synthesis constant for cI RNA)
 	'xCIRna',1.2, ... % (1/s)  (degradation constant for cI RNA)
 	'wCI',50, ... % (1/s) (synthesis constant for cI proten)
@@ -105,195 +124,108 @@ P=struct ( ...
 
 
 
-
+%% matrix of initial conditions
+%rows are molecule types, cols are runs with different 
+%starting conditions.
 % initial conditions
-cIRna=[0,0,0,0]; % (molecules/cell) starting cI mRNA concentration
-cIPro=[0,50,0,0]; % (molecules/cell) starting cI protein concentration
-croRna=[0,0,20,0]; % (molecules/cell) starting cro mRNA concentration
-croPro=[0,0,0,20]; % (molecules/cell) starting cro protein concentration
 %put all initial condintions into a struct
 %rows are molecule types, cols are runs with different 
 %starting conditions.
-%IC=struct ( ...
-%	'ir',cIRna, ... %cI RNA
-%	'ip',cIPro, ... %cI Protein
-%	'or',croRna, ... %cro RNA
-%	'op',croPro ... %cro Protein
-%);
-%%put all initial condintions into a matrix
-%rows are molecule types, cols are runs with different 
-%starting conditions.
-IC(n_ir,:)=cIRna;
-IC(n_ip,:)=cIPro;
-IC(n_or,:)=croRna;
-IC(n_op,:)=croPro;
+clear IC
+IC(n_ir,:)=[0,0,0,0]; % (molecules/cell) starting cI mRNA concentration
+IC(n_ip,:)=[0,50,0,0]; % (molecules/cell) starting cI protein concentration
+IC(n_or,:)=[0,0,20,0]; % (molecules/cell) starting cro mRNA concentration
+IC(n_op,:)=[0,0,0,20]; % (molecules/cell) starting cro protein concentration
+theParms.IC=IC;
+clear IC;
 
-% numerical approximation parameters
-N=struct ( ...
+%% numerical approximation parameters
+odeOptions=odeset('NonNegative',[1,1,1,1]); %tells ode45 to force non-neg for all four vars
+odeOptions=odeset(odeOptions,'RelTol',0.001); %default
+odeOptions=odeset(odeOptions,'AbsTol',0.000001); %default
+%odeOptions=odeset(odeOptions,'RelTol',0.000001);
+%odeOptions=odeset(odeOptions,'AbsTol',0.00000001);
+theParms.N=struct ( ...
 	'startTime',0, ...  % (s)
-	'endTime',20, ...  % (s)
-	'timeStep',0.01, ...  % (s) delta_t for approximation
-	'noNegative',1 ...  %constant passed to doForwardEuler that forces values to be non-negative
+	'endTime',25, ...  % (s) when absolute change over 5s < 1, rel change < 0.1%
+	'timeStep',0.01, ...  % (s) delta_t for approximation TODO: testin TODO: testing
+	'noNegative',1, ...  %constant passed to doForwardEuler that forces values to be non-negative
+	'doOde45',1, ... % [0 , 1 , 2] = [euler only, both , ode45 only]
+	'odeOptions',odeOptions ... %
 );
+clear odeOptions;
 
 %clear result arrays 
 %(the solver functions they are passed to will re-dimension them to the proper size)
-clear('X','timeVector','t_ode','y_ode','t_ode_cells','y_ode_cells','odeSol');
+clear('timeVector','X','dX','t_ode','y_ode','t_ode_cells','y_ode_cells','odeSol');
 
 
-doOde45=1; %use ode45() solver as a check
 %% Project Part 1
 %run the approximation algorithms, once for each set of IC's
-[timeVector,X,t_ode_cells,y_ode_cells]=runSimulation(P,IC,vs,N,doOde45);
 
-%%plot results
-plotSimulation(timeVector,X,t_ode_cells,y_ode_cells,P,IC,vs,N,doOde45);
-end %main function
+if doPart1
+	[timeVector,X,~,t_ode_cells,y_ode_cells]=runSimulation(theParms);
 
-function [timeVector,X,t_ode_cells,y_ode_cells]=runSimulation(P,IC,vs,N,doOde45);
-	numRuns=size(IC,2); %IC: each row is a diff var, containing ICs for different runs
-	%for theRun=1:numRuns
-
-	%define simulation parameters
-	numVars=size(IC,1); %number of independent variables (cImRNA cIProtein, croRNA, croPRot)
-	%make sure initial condition vectors are same column size:
-	%assert(size(cIRna,2)==numRuns && size(cIPro,2)== numRuns && ...
-	%	 size(croRna,2)==numRuns && size(croPro,2)  == numRuns); 
-
-	%in case we want to change ode45() parameters:
-	odeOptions=odeset('NonNegative',[1,1,1,1]);
-	odeOptions.RelTol=0.001;
-	odeOptions.AbsTol=0.001;
-
-	%use anonymous function for second degree Hill equation (models dimers)
-	hill2=@(k,x) x.^2./(k.^2 + x.^2);
-
-	% using anonymous function handles: 
-	% <cite>http://www.mathworks.com/help/matlab/ref/function_handle.html</cite>
-	% so we can pass the expression to different approximation algorithms if
-	% needed....
-		% NOTE: variable values (eg mu, k) are stored as constants
-		% in the funtion handle when it is declared, and persist when
-		% the handle is passed to another function
-	dIr_dt=@(ciR,ciP,croR,croP) P.muCI.*(1- hill2(P.kCro,croP)) - P.xCIRna .*ciR;% cI mRNA rate of change 
-			% *YES* it should be kCro and croP here, for the cI eq.
-	dIp_dt=@(ciR,ciP,croR,croP) P.wCI.*ciR - P.xCIPro.*ciP; % cI protein rate of change
-	dRr_dt=@(ciR,ciP,croR,croP) P.muCro.*(1- hill2(P.kCI,ciP)) - P.xCroRna .*croR; % cro mRNA rate of change
-			% *YES* it should be kCI and ciP here, for the cro eq.
-	dRp_dt=@(ciR,ciP,croR,croP) P.wCro.*croR - P.xCroPro.*croP; % cro protein rate of change
-
-	%make an cell-array of the function handles, to pass to the solver
-	dX_dt{vs.ir,1}=dIr_dt;
-	dX_dt{vs.ip,1}=dIp_dt;
-	dX_dt{vs.o_r,1}=dRr_dt;
-	dX_dt{vs.op,1}=dRp_dt;
-
-	for theRun=1:numRuns
-		%select the initial condition vector for this run from the IC matrix:
-		X0=IC(:,theRun);
-		
-		%call doForwardEuler() to simulate a run
-		[timeVector(:,theRun),X(:,:,theRun)]=doForwardEuler(dX_dt,X0,N.startTime,N.endTime,N.timeStep,N.noNegative);
-
-		% OPTIONAL.... for double checking results, use ode45():
-		% same thing but compare with MatLab ODE45 (a runge-kutta method)
-		% the idiom y(vs.ir) means the value of the previous step's cIRna.
-		% y() is an array of the previous step's values.
-		if (doOde45) 
-			dy_dt= @(t,y) [ P.muCI *(1 - hill2(P.kCro,y(vs.op)) ) - P.xCIRna * y(vs.ir); ...
-				P.wCI * y(vs.ir) - P.xCIPro * y(vs.ip); ...
-				P.muCro *(1 - hill2(P.kCI,y(vs.ip)) ) - P.xCroRna * y(vs.o_r); ...
-				P.wCro * y(vs.o_r) - P.xCroPro * y(vs.op) ];
-			if (is_octave) %running in octave
-				[t_ode,y_ode]=ode45(dy_dt,[N.startTime,N.endTime],X0,odeOptions);
-				t_ode_cells{theRun}=t_ode(:);
-				y_ode_cells{theRun}=y_ode(:,:);
-
-			else %matlab specific
-				odeSol=ode45(dy_dt,[N.startTime,N.endTime],X0,odeOptions);
-				t_ode_cells{theRun}=N.startTime:0.5:N.endTime;
-				y_ode_cells{theRun}=deval(odeSol,t_ode_cells{theRun});
-			end %octave check
-		else % no ode45 requested...  just create dummy variables to return
-			t_ode_cells={};
-			y_ode_cells={};
-		end %if ode45
-	end %loop over initial conditions
-end %function runSimulation
-
-
-%%plotting function
-function plotSimulation(timeVector,X,t_ode_cells,y_ode_cells,P,IC,vs,N,doOde45);
-numVars=size(IC,1);
-numRuns=size(IC,2);
-for theRun=1:numRuns
-	figure();
-	hold on;
-	plot(timeVector(:,theRun).',X(:,:,theRun).'); %plot() wants column vectors
-	if (doOde45)
-		%plot ode45 as crosses
-		%plot(t_ode(:,theRun),y_ode(:,:,theRun).','+')
-		plot(t_ode_cells{theRun},y_ode_cells{theRun}(:,:),'+')
-		%	t_ode(:,theRun),y_ode(:,n_ip,theRun).','g+', ...
-		%	t_ode(:,theRun),y_ode(:,n_or,theRun).','r+', ...
-		%	t_ode(:,theRun),y_ode(:,n_op,theRun).','y+');
-	end % if doOde
-	legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
-	legend(legTxt,'Location','East');
-	% trick to do multiline title *with* variable values:
-	% <cite>http://mechatronics.me.wisc.edu/labresources/MatlabTipsNTricks.htm</cite>
-	% <cite>http://www.mathworks.com/matlabcentral/answers/93295</cite>
-	titleTxt1={'Numerical solution to lysis gene model'};
-	titleTxt2={	['Solid lines show forward Euler with time-step: ', ...
-			num2str(N.timeStep),'s']; ...
-		'crosses show MatLab ode45() solver';};
-	titleTxt3={['ICs: cI_{r}=',num2str(IC(vs.ir,theRun)),'  cI_{p}=',num2str(IC(vs.ip,theRun)), ...
-			'  cro_{r}=',num2str(IC(vs.o_r,theRun)),  '  cro_{p}=',num2str(IC(vs.op,theRun))]; ...
-		['\mu=',num2str(P.muCI),'  \omega=', num2str(P.wCI),'  \chi_{cI}=',num2str(P.xCIRna), ...
-			'  \chi_{cro}=',  num2str(P.xCroRna), '  k=',num2str(P.kCI)]};
-	
-	hT=title([titleTxt1;titleTxt2;titleTxt3]);
-	fixTitle(hT);
-    xlabel('time (s)');
-	ylabel('concentration (molecules/cell)')
-    hold off;
-
-	%do plotyy to plot variable with largest values on a seperate axis
-	figure();
-    thisX=X(:,:,theRun); %seperating this out allows the nice max(thisX(:)) trick below
-	%see <cite>http://stackoverflow.com/questions/2635120/how-can-i-find-the-maximum-or-minimum-of-a-multi-dimensional-matrix-in-matlab</cite>
-	[xLargest,xPos]=max(thisX(:)); %xPos uses 1-D (collum-major) indexing
-	[maxVarRow,maxTimeCol]=ind2sub(size(thisX),xPos); %convert to 2-d indexing
-	%extract column to plot it on secondary axis
-	maxVar=thisX(maxVarRow,:);
-    otherRows=~ismember(1:numVars,maxVarRow);
-    otherVars=thisX(otherRows,:);
-    [hax,hlines,hmax]=plotyy(timeVector(:,theRun).',otherVars.', ...
-        timeVector(:,theRun).',maxVar.','plot','plot');
-    titleTxt2={['Note second Y-scaling for ',num2str(maxVarRow),'th var']};
-	%give secondary axis var a distinctive color
-	set(hmax,'color',[1,0,1]); %magenta
-	set(hmax,'marker','none');
-	set(hmax,'lineStyle',':');
-	set(hax(2),'ycolor',[1,0,1]);%magenta
-    ht=title([titleTxt1;titleTxt2;titleTxt3]);
-	fixTitle(hT);
-	legend([hlines;hmax],[legTxt(otherRows),legTxt(maxVarRow)],'Location','East');
-	xlabel('time (s)');
-	ylabel(hax(1),'concentration (molecules/cell)')
-	ylabel(hax(2),'concentration (molecules/cell)')
-end %looping over runs to make plots
-end %function plot
-
-
-%% Utilitiy functions
-
-function fixTitle(hT)
-	%Multiline title
-	%trick:<cite>http://www.mathworks.com/matlabcentral/answers/93295</cite>
-	%prevents title from being cut-off in matlab
-	axpos = get(gca,'pos');
-	set(hT,'units','normalized');
-	extent = get(hT,'extent');
-	set(gca,'pos',[axpos(1) axpos(2) axpos(3) axpos(4)-0.33*extent(4)]);
+	%% plot results
+	doLog=1; %request semilogy plot instead of secondary axis plot
+	plotSimulation(timeVector,X,t_ode_cells,y_ode_cells,theParms,doLog); 
 end
+clear doLog;
+%% Project Part 2
+% $$ Plot cI_{prot} vs cro_{prot} for ICs 0-20 $$
+
+
+% $$ Plot cI_{prot} vs cro_{prot} for ICs 0-2000 $$
+if doPart2
+	icStart=0;
+	icEnd=2000;
+	icStep=500;
+	numICs=floor((icEnd-icStart)/icStep+1); %floor b/c if we have a partial step, it doesn't count
+
+	%% create sequences of ICs
+		%see: <cite>http://www.mathworks.com/matlabcentral/answers/16270-create-vector-of-repeating-elements-sort-of</cite>
+	clear theParms.IC IC
+	IC(n_ir,:)=repmat([icStart:icStep:icEnd],1,numICs); % 1 2 3 4 ... n 1 2 3 4 ... n 1 2 3 4 ... n (n times)
+	IC(n_ip,:)=zeros(1,numICs^2);
+	tmpV=repmat([icStart:icStep:icEnd],numICs,1);
+	IC(n_or,:)=tmpV(:)' ; % 1 1 1 1 2 2 2 2 .... n n n n 
+	IC(n_op,:)=zeros(1,numICs^2);
+	theParms.IC=IC;
+	clear IC;
+
+	%% run simulation
+	theParms.N.doOde45=1; % don't double check results
+	theParms.N.timeStep=0.01;
+	theParms.N.endTime=25;
+	[timeVector,X,dX,t_ode_cells,y_ode_cells]=runSimulation(theParms);
+	%doOde45: [0,1,2]==[only forward euler,both,only ode45]
+	%% $$cro_{p} vs cI_{p} plot$$
+	numRuns=size(timeVector,2) ; % timeVector is timeSteps x runs
+	X1=X+1; %for semi-log or log-log plots
+	figure();
+	for theRun=1:numRuns
+		loglog(X1(n_ip,:,theRun).',X1(n_op,:,theRun).');
+		hold on;
+		%plot(X(n_ip,:,theRun).',X(n_op,:,theRun).');
+	end %runs
+	hold off;
+
+	%% plot all runs of different ICs on same plot
+	plotAll(timeVector,X,t_ode_cells,y_ode_cells, theParms)
+end %if doPart2
+
+%% mesh plot of equilibrium vals (doMeshPlot recalculates data)
+if doMesh
+	cISteps=[0:2:100 110:10:200]; %initial cI_{RNA}
+	croSteps=[0:0.2:5 6:10];%initial cro{RNA}
+	theParms.N.doOde45=2;
+%	if is_octave %use forward euler for now to avoid bug
+%		theParms.N.doOde45=0; % only use euler
+%	else
+%		theParms.N.doOde45=2; % only use ode45
+%	end
+	theParms.N.endTime=20;
+	theParms.N.timeStep=0.01;
+	[ir0,or0,croAnsEul,cIAnsEul,croAnsOde,cIAnsOde ]= ...
+		doMeshPlot(theParms,croSteps,cISteps);
+end %if doMesh

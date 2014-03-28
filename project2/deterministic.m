@@ -132,10 +132,17 @@ theParms.P=struct ( ...
 %rows are molecule types, cols are runs with different 
 %starting conditions.
 clear IC
+%conditions for assignment
 IC(n_ir,:)=[0,0,0,0]; % (molecules/cell) starting cI mRNA concentration
 IC(n_ip,:)=[0,50,0,0]; % (molecules/cell) starting cI protein concentration
 IC(n_or,:)=[0,0,20,0]; % (molecules/cell) starting cro mRNA concentration
 IC(n_op,:)=[0,0,0,20]; % (molecules/cell) starting cro protein concentration
+
+%further testing of dynamics of high concentrations
+%IC(n_ir,:)=[20000,0,20000,5000]; % (molecules/cell) starting cI mRNA concentration
+%IC(n_ip,:)=[0,2000,0,0]; % (molecules/cell) starting cI protein concentration
+%IC(n_or,:)=[0,0,300,300]; % (molecules/cell) starting cro mRNA concentration
+%IC(n_op,:)=[0,0,0,0]; % (molecules/cell) starting cro protein concentration
 theParms.IC=IC;
 clear IC;
 
@@ -215,9 +222,17 @@ if doPart2
 end %if doPart2
 
 %% mesh plot of equilibrium vals (doMeshPlot recalculates data)
+%% Shows that the boundary between the stable equlibria lies approximately
+%% on the straight line $$ cro_{rna}(t=0) = 0.015 cI_{rna}(t=0) $$
+%% The boundary appears to decrease in slope as cI_{rna} increases
+%% showing that at high concentrations, the ratio of initial cI:cro
+%% leading to the cI equilibrium increases.
+%% It may continue to decelarate, or else approach a straight line.
 if doMesh
 	cISteps=[0:2:100 110:10:200]; %initial cI_{RNA}
 	croSteps=[0:0.2:5 6:10];%initial cro{RNA}
+	%cISteps=[0:2000:20000]; % $$initial cI_{RNA}$$
+	%croSteps=0.015*cISteps;% $$initial cro{RNA}$$
 	theParms.N.doOde45=2;
 %	if is_octave %use forward euler for now to avoid bug
 %		theParms.N.doOde45=0; % only use euler

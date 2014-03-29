@@ -34,7 +34,7 @@ STARTPATH=addpath(SHAREDIR);
 
 % Four concentrations and time 
 
-numRuns=10; %replicates... running simultaneously 
+numRuns=2; %replicates... running simultaneously 
 maxStep=50000; % maximum steps
 curStep=0;  % current step
 
@@ -44,7 +44,7 @@ numChems=4; %number data colums that are actual chemicals (ie: not time or rxnNu
 
 Acells=cell(numRuns,1);
 %%% initial conditions. 
-initialArray=-1*ones(maxStep,numVars);
+initialArray=-1*ones(maxStep+1,numVars); %add one for t=0 initial condition
 initialArray(1,:)=0; %other ICs can go here
 Acells(:)=initialArray;
 %REASON FOR the -1 inital array:
@@ -102,7 +102,7 @@ v_op_n=8; %cro protein negative (decay) rate
 
 
 %%% population update vectors for these eqs
-N=zeros(numRxns,numVars); % A(n+1)=A(n)+N(reaction_num_chosen,:);
+N=zeros(numRxns,numChems); % A(n+1,1:numChems)=A(n,1:numChems)+N(reaction_num_chosen,:);
 N(v_ir_p,n_ir)=1;
 N(v_ir_n,n_ir)=-1;
 N(v_ip_p,n_ip)=1;
@@ -166,7 +166,7 @@ for theRun=[1:numRuns]
 			%%% calculate tNext
 			u=rand();
 			t_next=-log(u)./a0; 
-			A(curStep,n_tm)=t_next; %keeps track of time steps in datavector A
+			A(curStep+1,n_tm)=t_next; %keeps track of time steps in datavector A
 
 			%%% calculate next reaction
 			r=rand();
@@ -178,14 +178,14 @@ for theRun=[1:numRuns]
 				% TODO: this might fail if rounding error makes r.*a0 > V_sum
 				% Safer to assign to a temp var, test if empty(), replace with
 				% zero, and then assigning to theRxnNum.
-			A(curStep,n_rn)=theRxnNum; % keeps track of which reactions happened
+			A(curStep+1,n_rn)=theRxnNum; % keeps track of which reactions happened
 				
 		
 			%% update state of A
-			A_next=A(curStep,:)+N(theRxnNum,:);
+			A_chems_next=A(curStep,1:numChems)+N(theRxnNum,:);
 			%set any negative concentrations equal to 0
-			A_next(A_next<0)=0;
-			A(curStep+1,:)=A_next;
+			A_chems_next(A_chems_next<0)=0;
+			A(curStep+1,1:numChems)=A_chems_next;
 
 			curStep=curStep+1;
 			%display something every thousand steps so we know it's not hung
@@ -212,23 +212,63 @@ Acells{theRun}=A;
 end % loop replicates loop
 
 
-toc();
+toc()
 %% plot results
+
+
+%protein vs protein
+%TODO: deal with non-positive data in log-log plot
+
 figure()
 for theRun=1:numRuns
-	stairs(cumsum(Acells{theRun}(:,n_tm)),Acells{theRun}(:,1:4))
+	l_data=Acells{theRun}(:,:); 
+	l_data(0==l_data)=0.1;
+	loglog(l_data(:, n_ip), l_data(:, n_op))
+	hold on;
+end
+titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(numRuns),' stochastic trials']; ...
+		'0.1 added to zero values to allow log-scale plot'}	;
+titleTxt2={['all Initial values 0']};
+titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
+			'  \chi_{cI}=',num2str(P.x_ci_r), ...
+			'  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]}
+
+ylabel ('molecules of cro protein')
+xlabel ('molecules of cI protein')
+
+
+
+
+
+
+figure()
+for theRun=1:numRuns
+	plot(cumsum(Acells{theRun}(:,n_tm)),Acells{theRun}(:,1:numChems))
 
 	hold on;
 
 end
+legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
+titleTxt1={['Gilespie simulation of lysis gene model showing ',num2str(numRuns),' stochastic trials']};
+title([titleTxt1;titleTxt2;titleTxt3]);
+xlabel('time (s)')
+ylabel('number of molecules');
+legend(legTxt,'Location','East');
 
 hold off;
 %semilogy
 figure()
 for theRun=1:numRuns
-	semilogy(cumsum(Acells{theRun}(:,n_tm)),Acells{theRun}(:,1:4))
+	l_data=Acells{theRun}(:,:); 
+	l_data(0==l_data(:,1:numChems))=0.1;
+	semilogy(cumsum(l_data(:,n_tm)),l_data(:,1:numChems));
 
 	hold on;
 
 end
+xlabel('time (s)')
+ylabel('number of molecules');
+legend(legTxt,'Location','East');
+titleTxt1_5={	'0.1 added to zero values to allow log-scale plot'}	;
+title([titleTxt1;titleTxt1_5;titleTxt2;titleTxt3]);
 

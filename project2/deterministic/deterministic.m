@@ -63,7 +63,7 @@
 % add path to shared functions from project1 
 % WARN: assumes without checking that these functions will be in SIMDIR
 % <cite>http://www.mathworks.com/matlabcentral/newsreader/view_thread/132505</cite>
-SHAREDIR='../shared/';
+SHAREDIR='../../shared/';
 STARTPATH=addpath(SHAREDIR);
 % TODO: exit code/cleanup should restore STARTPATH
 

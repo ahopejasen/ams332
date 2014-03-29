@@ -34,7 +34,7 @@ STARTPATH=addpath(SHAREDIR);
 
 % Four concentrations and time 
 
-numRuns=2; %replicates... running simultaneously 
+numRuns=20; %replicates... running simultaneously 
 maxStep=50000; % maximum steps
 curStep=0;  % current step
 
@@ -46,7 +46,7 @@ Acells=cell(numRuns,1);
 %%% initial conditions. 
 initialArray=-1*ones(maxStep+1,numVars); %add one for t=0 initial condition
 initialArray(1,:)=0; %other ICs can go here
-Acells(:)=initialArray;
+[Acells{:}]=deal(initialArray);
 %REASON FOR the -1 inital array:
 %preallocating Acells speeds things up by 50%(!), but it gives erroneous 0 values
 %for runs that terminate early
@@ -231,8 +231,8 @@ titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(numRuns),' stochastic trials'];
 titleTxt2={['all Initial values 0']};
 titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
 			'  \chi_{cI}=',num2str(P.x_ci_r), ...
-			'  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]}
-
+			'  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
+title([titleTxt1;titleTxt2;titleTxt3]);
 ylabel ('molecules of cro protein')
 xlabel ('molecules of cI protein')
 

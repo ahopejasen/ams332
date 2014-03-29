@@ -6,23 +6,7 @@
 % Even though the algorithm only requires the current and next states,
 % I'm keeping all time steps in memory to allow doing
 % stats (mean, variance) across replicates, (and across time for stable states)
-% Because runs will be of diferent lengths, there are TWO ways to deal with
-% the resulting data: 
-% # store it all in an array, but use some sort of a flag for
-%   when a run ends. The flag can be a numRuns dimensional vector of each run's 
-%   endpoint.
-% # store each run in a cell-array.
-% Because of the diferent run-lengths, it is hard, in gen, to do aggregate operations
-% like plotting or statistics without looping a checking endpoint (for an array)
-% or looping through the cell-array. 
 %
-% Using arrays  allow aggregate array operations on a minmal subset of the data 
-% (ie up to the timestep of the  shortest run), but imposes overhead of having
-% to redimension the data array each time you add a run thats longer than the
-% existing ones. So cell-arrays it is
-%
-% Acells{numRuns,1}(time,numVars) contains data for all numVars=4 species.
-%   possible I could also use a 2D cell-array A{initial_conditions,replicates}
 
 SHAREDIR='../../shared/';
 STARTPATH=addpath(SHAREDIR);

@@ -18,7 +18,7 @@ STARTPATH=addpath(SHAREDIR);
 
 % Four concentrations and time 
 
-numRuns=2; %replicates... running simultaneously 
+numRuns=40; %replicates... running simultaneously 
 maxStep=50000; % maximum steps
 curStep=0;  % current step
 
@@ -26,20 +26,8 @@ curStep=0;  % current step
 numVars=6; %four chemicals, *time*, and reaction_number, for each replicate
 numChems=4; %number data colums that are actual chemicals (ie: not time or rxnNum)
 
-%Acells=cell(numRuns,1);
-%%% initial conditions. 
-%initialArray=-1*ones(maxStep+1,numVars); %add one for t=0 initial condition
-%initialArray(1,:)=0; %other ICs can go here
-%[Acells{:}]=deal(initialArray);
 A_array=-1*ones(maxStep+1,numVars,numRuns); %add one for t=0 initial condition
 A_array(1,:,:)=0; %other ICs can go here
-%REASON FOR the -1 inital array:
-%preallocating Acells speeds things up by 50%(!), but it gives erroneous 0 values
-%for runs that terminate early
-%a workaround is to populate with negative vals, since this is
-%a non-negative simulation. 
-%   this way the negative data can be filtered out later
-
 
 %indices for arrays (because numbers are hard to debug, and 
 %structs/classes of arrays might be slow compared to strict arrays
@@ -49,6 +37,18 @@ n_or=3; %cro RNA
 n_op=4; %cro protein
 n_tm=5; %time steps
 n_rn=6; %reaction that happened at each step
+
+%%% initial conditions. 
+numICs=2;
+IC=zeros(numICs,numVars); 
+IC(1,n_or)=20; %20 molecules of cro Rna
+IC(2,n_ir)=20; %20 molecules of cI Rna
+%REASON FOR the -1 inital array:
+%preallocating Acells speeds things up by 50%(!), but it gives erroneous 0 values
+%for runs that terminate early
+%a workaround is to populate with negative vals, since this is
+%a non-negative simulation. 
+%   this way the negative data can be filtered out later
 
 
 %%% model parameters
@@ -102,6 +102,11 @@ tic();
 %% loop across replicates  
 fprintf('starting %d runs of %d iterations each\n',numRuns,maxStep);
 for theRun=[1:numRuns]
+
+
+	%rotate through ICs as we go through runs
+	theIC=mod(numRuns,numICs)+1;
+	A_array(1,:,theRun)=IC(theIC);
 
 
 

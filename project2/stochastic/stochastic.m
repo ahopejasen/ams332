@@ -1,53 +1,94 @@
 %% stochastic simulation of lysis/lysogeny using gilespie algorithm
 
 
+
+%%% Note on my choice of data structures:
+% Even though the algorithm only requires the current and next states,
+% I'm keeping all time steps in memory to allow doing
+% stats (mean, variance) across replicates, (and across time for stable states)
+% Because runs will be of diferent lengths, there are TWO ways to deal with
+% the resulting data: 
+% # store it all in an array, but use some sort of a flag for
+%   when a run ends. The flag can be a numRuns dimensional vector of each run's 
+%   endpoint.
+% # store each run in a cell-array.
+% Because of the diferent run-lengths, it is hard, in gen, to do aggregate operations
+% like plotting or statistics without looping a checking endpoint (for an array)
+% or looping through the cell-array. 
+%
+% Using arrays  allow aggregate array operations on a minmal subset of the data 
+% (ie up to the timestep of the  shortest run), but imposes overhead of having
+% to redimension the data array each time you add a run thats longer than the
+% existing ones. So cell-arrays it is
+%
+% Acells{numRuns,1}(time,numVars) contains data for all numVars=4 species.
+%   possible I could also use a 2D cell-array A{initial_conditions,replicates}
+
+SHAREDIR='../../shared/';
+STARTPATH=addpath(SHAREDIR);
+% TODO: exit code/cleanup should restore STARTPATH
+
 %% initializations
 
 %%% model variables
-% Four concentrations and time 
-% I'm keeping all time steps in memory to allow doing
-% stats (mean, variance) across replicates and across time for stable states
 
-%% simulation parameters
-numRuns=1; %replicates... running simultaneously 
+% Four concentrations and time 
+
+numRuns=10; %replicates... running simultaneously 
 maxStep=50000; % maximum steps
 curStep=0;  % current step
 
 % 5 vars x r replicate array x n steps
-numVars=5; %four chemicals and time, for each replicate
-A=zeros(numVars,numRuns,1); %initial conditions
-						%note: A(i,:,j) is a *ROW vector*
-a0=zeros(numRuns,1); % *zero propensity* probability that _some_ reaction happens
+numVars=6; %four chemicals, *time*, and reaction_number, for each replicate
+numChems=4; %number data colums that are actual chemicals (ie: not time or rxnNum)
 
-runsInPlay=ones(numRuns,1); %filter for the cols still meeting loop conditions
+Acells=cell(numRuns,1);
+%%% initial conditions. 
+initialArray=-1*ones(maxStep,numVars);
+initialArray(1,:)=0; %other ICs can go here
+Acells(:)=initialArray;
+%REASON FOR the -1 inital array:
+%preallocating Acells speeds things up by 50%(!), but it gives erroneous 0 values
+%for runs that terminate early
+%a workaround is to populate with negative vals, since this is
+%a non-negative simulation. 
+%   this way the negative data can be filtered out later
 
-%indices for arrays 
+
+%indices for arrays (because numbers are hard to debug, and 
+%structs/classes of arrays might be slow compared to strict arrays
 n_ir=1; %cI rna
 n_ip=2; % cI protein
 n_or=3; %cro RNA
 n_op=4; %cro protein
 n_tm=5; %time steps
+n_rn=6; %reaction that happened at each step
 
 
 %%% model parameters
-mu_ci=1.2;  % $\mu_{cI}$ cI RNA production
-mu_cro=1.2; % $\mu_{cro}$ cro RNA production
-w_ci=1.2; % $\omega_{cI}$ cI protein production
-w_cro=1.2; % $\omega_{cro}$ cro protein production
-x_ci_r=1.2; % $\chi_{cI,rna}$ ci rna degradation
-x_ci_p=1.2; % $\chi_{cI,pro}$ ci pro degradation
-x_cro_r=0.8;% $\chi_{cro,rna}$ cro rna degradation
-x_cro_p=0.8; % $\chi_{cro,pro}$ cro pro degradation
-k_ci=10;
-k_cro=10;
+P=struct ( ...
+	'mu_ci',50, ... % (molecules/(cell*sec)) (synthesis constant for cI RNA)
+	'x_ci_r',1.2, ... % (1/s)  (degradation constant for cI RNA)
+	'w_ci',50, ... % (1/s) (synthesis constant for cI proten)
+	'x_ci_p',1.2, ... % (1/s) (degradation constant for  cI protein)
+	'k_cro',10, ... % (molecules/cell) (Cro protein concentration that occupies 50% of binding sites on cI dna)
+	...	% note: this is not an error: k_cro is used in the equation for cI
+	...
+	... % cro equation
+	'mu_cro',50, ... % (molecules/(cell*sec)) (synthesis constant for cro RNA)
+	'x_cro_r',0.8, ... % (1/s)  (degradation constant for cro RNA)
+	'w_cro',50, ... % (1/s) (synthesis constant for cro protein)
+	'x_cro_p',0.8, ... % (1/s) (degradation constant for cro protein)
+	'k_ci',10 ... %  (molecules/cell) (cI protein concentration that occupies 50% of binding sites on cro dna)
+			... % this is not an error: k_cro is used in the equation for cI
+);
 
 
 
 %%% Eight reaction rates as a function of time and state
-% variable  x replicate
-% two reactions (create and destroy) for each variable
-numRxns=2*(numVars-1); %(the last variable, time, doesn't count );
-V=zeros(2*numRxns,numRuns); 
+% (two reactions (create and destroy) for each variable)
+numRxns=2*(numChems); %(the last variables, time rxnNum, dont count in reactions );
+V=zeros(1,numRxns); 
 
 %indexes for reactions rates
 v_ir_p=1; %cI rna positive (creation) rate
@@ -61,7 +102,7 @@ v_op_n=8; %cro protein negative (decay) rate
 
 
 %%% population update vectors for these eqs
-N=zeros(numRxns,numVars);
+N=zeros(numRxns,numVars); % A(n+1)=A(n)+N(reaction_num_chosen,:);
 N(v_ir_p,n_ir)=1;
 N(v_ir_n,n_ir)=-1;
 N(v_ip_p,n_ip)=1;
@@ -71,73 +112,123 @@ N(v_or_n,n_or)=-1;
 N(v_op_p,n_op)=1;
 N(v_op_n,n_op)=-1;
 
-%% main loop
-notDone=true;
-while notDone
-
-	%% current concentrations across replicates (row vectors)
-	a_ir=A(n_ir,:,curStep); % current amount of $$cI_{rna}$$
-	a_ip=A(n_ip,:,curStep); % current amount of $$cI_{pro}$$
-	a_or=A(n_or,:,curStep); % current amount of $$cro_{rna}$$
-	a_op=A(n_op,:,curStep); % current amount of $$cro_{pro}$$
+tic();
+%% loop across replicates  
+for theRun=[1:numRuns]
 
 
 
-	%% calculate V, the vector of reaction rates
-	% V has dimensions (numRxns,numRuns)
-	% $cI_{rna}$
-	% hill function $=\frac{a_op^2}{k_{cro}^2 + a_op^2}$
-	V(v_ir_p)= mu_ci .* (1 - hill2(a_op,k_cro)); % cI_rna generator
-	V(v_ir_n) = x_ci_r .* a_ir ; % cI_rna decay
+	A=Acells{theRun}; %A( time, numVars ) %would be nice if this were a pointer/reference
+										%but it's not: i'll need to update Acells{theRun}
+										%when the simulation loop is done.
 
-	% $cI_{pro}$
-	V(v_ip_p)= w_ci .* a_ir; % cI_pro generator
-	V(v_ip_n)= x_ci_p .* a_ip; % cI_pro decay
+	a0=0; % *zero propensity*: probability that _some_ reaction happens
 
-	% $cro_{rna}$
-	% hill function $=\frac{a_ip^2}{k_{cI}^2 + a_ip^2}$
-	V(v_or_p)= mu_cro .* (1 - hill(a_ip,k_ci)); % cro_rna generator
-	V(v_or_n)= x_cro_r .* a_or ; % cro_rna decay
+	V=zeros(1,numRxns); 
 
-	% $cro_{rna}$
-	V(v_op_p)= w_cro .* a_or; % cro_pro generator
-	V(v_op_n)= x_cro_p .* a_op; % cro_pro decay
+	curStep=1; %loop counter for simulation loop
+	%% simulation loop
+	notDone=true;
+	while notDone
 
-	% calculate a0= $\sum V_{j}
-	% V() is (numVars-1)xnumRuns
-	% we want a0 to be numRuns
-	a0=sum(V,1); % *row vector* of dim numRuns
-	a0=a0.*runsInPlay ; % restores previous zero columns
-	runsInPlay=a0>0;
-
-	if any(a0(:)) %at least one reaction has non-zero probability...
-		% calculate tNext
-		u=rand(numRuns,1);
-		t_next=-log(u)./rand(numRuns,1); 
-		t_next(isequal(t_next,inf))=0; %handles division by zero!
-			%<cite>www.mathworks.com/matlabcentral/newsreadr/view_thread/32253</cite>
-
-		%%% calculate next reaction
-		r=rand(1,numRuns);
-		V_sum=cumsum(V,2*numVars,numRuns); 
+		%% current concentrations
+		a_ir=A(curStep,n_ir); % current amount of $$cI_{rna}$$
+		a_ip=A(curStep,n_ip); % current amount of $$cI_{pro}$$
+		a_or=A(curStep,n_or); % current amount of $$cro_{rna}$$
+		a_op=A(curStep,n_op); % current amount of $$cro_{pro}$$
 
 
-		for idx=[1:numRuns]
-			theRxnNum(idx)=find(V_sum(:,idx) > r.*a0(idx),1,'first');
-				% a hack from ams332 class text p. 169
+
+		%% calculate V, the vector of reaction rates
+		% V has dimensions (1,numRxns)
+		% $cI_{rna}$
+		% hill function $=\frac{a_op^2}{k_{cro}^2 + a_op^2}$
+		V(v_ir_p)= P.mu_ci .* (1 - hill2(a_op,P.k_cro)); % cI_rna generator
+		V(v_ir_n) = P.x_ci_r .* a_ir ; % cI_rna decay
+
+		% $cI_{pro}$
+		V(v_ip_p)= P.w_ci .* a_ir; % cI_pro generator
+		V(v_ip_n)= P.x_ci_p .* a_ip; % cI_pro decay
+
+		% $cro_{rna}$
+		% hill function $=\frac{a_ip^2}{k_{cI}^2 + a_ip^2}$
+		V(v_or_p)= P.mu_cro .* (1 - hill2(a_ip,P.k_ci)); % cro_rna generator
+		V(v_or_n)= P.x_cro_r .* a_or ; % cro_rna decay
+
+		% $cro_{rna}$
+		V(v_op_p)= P.w_cro .* a_or; % cro_pro generator
+		V(v_op_n)= P.x_cro_p .* a_op; % cro_pro decay
+
+		% calculate a0= $\sum V_{j}
+		a0=sum(V);
+
+		if a0 %at least one reaction has non-zero probability...
+			%%% calculate tNext
+			u=rand();
+			t_next=-log(u)./a0; 
+			A(curStep,n_tm)=t_next; %keeps track of time steps in datavector A
+
+			%%% calculate next reaction
+			r=rand();
+			V_sum=cumsum(V); 
+
+
+			theRxnNum=find(V_sum > r.*a0,1,'first');
+				% this _find()_ idiom is a hack from <cite>ams332 class text p. 169</cite>
 				% TODO: this might fail if rounding error makes r.*a0 > V_sum
-				% safer to assign to a temp var, test if empty(), replace with
+				% Safer to assign to a temp var, test if empty(), replace with
 				% zero, and then assigning to theRxnNum.
+			A(curStep,n_rn)=theRxnNum; % keeps track of which reactions happened
 				
-		end
 		
-		%% update state of A
-		curStep=curStep+1;
+			%% update state of A
+			A_next=A(curStep,:)+N(theRxnNum,:);
+			%set any negative concentrations equal to 0
+			A_next(A_next<0)=0;
+			A(curStep+1,:)=A_next;
+
+			curStep=curStep+1;
+			%display something every thousand steps so we know it's not hung
+			if ~mod(curStep,5000)
+				fprintf('%d.',curStep);
+				%flush the output paging buffer
+				if is_octave
+					 fflush(stdout) ;
+				end
+			end
 
 
 
-	else %  a0==0 no more possible transistions
-		notDone=false; 
-	end
-	notDone= (notDone && (curStep <= maxStep) && any(a0(:)) > 0 ) % loop condition
-end % main loop
+		else %  a0==0 no more possible transistions
+			notDone=false; 
+		end
+
+		%%% check loop exit conditions
+		notDone= (notDone && (curStep <= maxStep) && a0 > 0 ); % loop condition
+	end % main simulation loop
+
+%update Acells
+Acells{theRun}=A; 
+end % loop replicates loop
+
+
+toc();
+%% plot results
+figure()
+for theRun=1:numRuns
+	stairs(cumsum(Acells{theRun}(:,n_tm)),Acells{theRun}(:,1:4))
+
+	hold on;
+
+end
+
+hold off;
+%semilogy
+figure()
+for theRun=1:numRuns
+	semilogy(cumsum(Acells{theRun}(:,n_tm)),Acells{theRun}(:,1:4))
+
+	hold on;
+
+end
+

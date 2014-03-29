@@ -116,6 +116,7 @@ N(v_op_n,n_op)=-1;
 
 tic();
 %% loop across replicates  
+fprintf('starting %d runs of %d iterations each\n',numRuns,maxStep);
 for theRun=[1:numRuns]
 
 
@@ -209,8 +210,8 @@ for theRun=[1:numRuns]
 		%%% check loop exit conditions
 		notDone= (notDone && (curStep <= maxStep) && a0 > 0 ); % loop condition
 	end % main simulation loop
-	
-	fprintf('\nrun %d/%d finished\n',theRun,numRuns);
+fprintf('\nfinished run %d/%d\n',theRun,numRuns);
+
 %update Acells
 %Acells{theRun}=A; 
 A_array(:,:,theRun)=A; 

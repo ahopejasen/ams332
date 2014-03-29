@@ -34,7 +34,7 @@ STARTPATH=addpath(SHAREDIR);
 
 % Four concentrations and time 
 
-numRuns=20; %replicates... running simultaneously 
+numRuns=2; %replicates... running simultaneously 
 maxStep=50000; % maximum steps
 curStep=0;  % current step
 
@@ -42,11 +42,13 @@ curStep=0;  % current step
 numVars=6; %four chemicals, *time*, and reaction_number, for each replicate
 numChems=4; %number data colums that are actual chemicals (ie: not time or rxnNum)
 
-Acells=cell(numRuns,1);
+%Acells=cell(numRuns,1);
 %%% initial conditions. 
-initialArray=-1*ones(maxStep+1,numVars); %add one for t=0 initial condition
-initialArray(1,:)=0; %other ICs can go here
-[Acells{:}]=deal(initialArray);
+%initialArray=-1*ones(maxStep+1,numVars); %add one for t=0 initial condition
+%initialArray(1,:)=0; %other ICs can go here
+%[Acells{:}]=deal(initialArray);
+A_array=-1*ones(maxStep+1,numVars,numRuns); %add one for t=0 initial condition
+A_array(1,:,:)=0; %other ICs can go here
 %REASON FOR the -1 inital array:
 %preallocating Acells speeds things up by 50%(!), but it gives erroneous 0 values
 %for runs that terminate early
@@ -118,8 +120,9 @@ for theRun=[1:numRuns]
 
 
 
-	A=Acells{theRun}; %A( time, numVars ) %would be nice if this were a pointer/reference
-										%but it's not: i'll need to update Acells{theRun}
+	%A=Acells{theRun}; %A( time, numVars ) %would be nice if this were a pointer/reference
+	A=A_array(:,:,theRun); %A( time, numVars ) %would be nice if this were a pointer/reference
+										%but it's not: i'll need to update A_array(:,:,theRun)
 										%when the simulation loop is done.
 
 	a0=0; % *zero propensity*: probability that _some_ reaction happens
@@ -206,9 +209,11 @@ for theRun=[1:numRuns]
 		%%% check loop exit conditions
 		notDone= (notDone && (curStep <= maxStep) && a0 > 0 ); % loop condition
 	end % main simulation loop
-
+	
+	fprintf('\nrun %d/%d finished\n',theRun,numRuns);
 %update Acells
-Acells{theRun}=A; 
+%Acells{theRun}=A; 
+A_array(:,:,theRun)=A; 
 end % loop replicates loop
 
 
@@ -221,9 +226,9 @@ toc()
 
 figure()
 for theRun=1:numRuns
-	l_data=Acells{theRun}(:,:); 
+	l_data=A_array(:,:,theRun); 
 	l_data(0==l_data)=0.1;
-	loglog(l_data(:, n_ip), l_data(:, n_op))
+	loglog(l_data(:, n_ip), l_data(:, n_op));
 	hold on;
 end
 titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(numRuns),' stochastic trials']; ...
@@ -233,8 +238,8 @@ titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
 			'  \chi_{cI}=',num2str(P.x_ci_r), ...
 			'  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
 title([titleTxt1;titleTxt2;titleTxt3]);
-ylabel ('molecules of cro protein')
-xlabel ('molecules of cI protein')
+ylabel ('molecules of cro protein');
+xlabel ('molecules of cI protein');
 
 
 
@@ -243,7 +248,7 @@ xlabel ('molecules of cI protein')
 
 figure()
 for theRun=1:numRuns
-	plot(cumsum(Acells{theRun}(:,n_tm)),Acells{theRun}(:,1:numChems))
+	plot(cumsum(A_array(:,n_tm,theRun)),A_array(:,1:numChems,theRun));
 
 	hold on;
 
@@ -251,7 +256,7 @@ end
 legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
 titleTxt1={['Gilespie simulation of lysis gene model showing ',num2str(numRuns),' stochastic trials']};
 title([titleTxt1;titleTxt2;titleTxt3]);
-xlabel('time (s)')
+xlabel('time (s)');
 ylabel('number of molecules');
 legend(legTxt,'Location','East');
 
@@ -259,14 +264,14 @@ hold off;
 %semilogy
 figure()
 for theRun=1:numRuns
-	l_data=Acells{theRun}(:,:); 
+	l_data=A_array(:,:,theRun); 
 	l_data(0==l_data(:,1:numChems))=0.1;
 	semilogy(cumsum(l_data(:,n_tm)),l_data(:,1:numChems));
 
 	hold on;
 
 end
-xlabel('time (s)')
+xlabel('time (s)');
 ylabel('number of molecules');
 legend(legTxt,'Location','East');
 titleTxt1_5={	'0.1 added to zero values to allow log-scale plot'}	;

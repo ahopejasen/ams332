@@ -12,22 +12,38 @@ SHAREDIR='../../shared/';
 STARTPATH=addpath(SHAREDIR);
 % TODO: exit code/cleanup should restore STARTPATH
 
+
+%% switches to control script behavior
+if ~exist('runsPerIC','var') %allows me to overide this from the workspace
+    runsPerIC=20; %replicates for each IC 
+end
+
+if ~exist('doPhasePlots','var') %allows me to overide this from the workspace
+    doPhasePlots=true; % plot log(_cro_{pro}_) vs 
+                        % log(_cI_{pro}_) phase plot
+end
+
+if ~exist('doXYPlots','var') %allows me to overide this from the workspace
+    doXYPlots=true; % plot data shows all four vars on linear scale
+                    % in practice only the equilibrium protein
+                    % will be visible above the X axis
+end
+if ~exist('doLogPlots','var') %allows me to overide this from the workspace
+    doLogPlots=false; % plot data on semilogy scale
+                    % this is good for seeing low concentration data
+                    % as well as showing rna and protein on same plot
+end
+
+
+
 %% initializations
-
 %%% model variables
-
-% Four concentrations and time 
-
-numRuns=40; %replicates... running simultaneously 
 maxStep=50000; % maximum steps
 curStep=0;  % current step
 
 % 5 vars x r replicate array x n steps
 numVars=6; %four chemicals, *time*, and reaction_number, for each replicate
 numChems=4; %number data colums that are actual chemicals (ie: not time or rxnNum)
-
-A_array=-1*ones(maxStep+1,numVars,numRuns); %add one for t=0 initial condition
-A_array(1,:,:)=0; %other ICs can go here
 
 %indices for arrays (because numbers are hard to debug, and 
 %structs/classes of arrays might be slow compared to strict arrays
@@ -38,17 +54,43 @@ n_op=4; %cro protein
 n_tm=5; %time steps
 n_rn=6; %reaction that happened at each step
 
+
+
+
 %%% initial conditions. 
-numICs=2;
-IC=zeros(numICs,numVars); 
-IC(1,n_or)=20; %20 molecules of cro Rna
-IC(2,n_ir)=20; %20 molecules of cI Rna
+theIC=1;
+IC(theIC,:)=zeros(1,numVars); 
+titleTxtIC{1}='All initial concentrations 0';
+%20 molecules of cro Rna
+theIC=2;
+IC(theIC,:)=zeros(1,numVars); 
+IC(theIC,n_or)=20; 
+titleTxtIC{theIC}='All initial concentrations 0 except cro_{rna}(0)=20';
+%20 molecules of cI Rna
+theIC=3;
+IC(theIC,:)=zeros(1,numVars); 
+IC(theIC,n_ir)=20; 
+titleTxtIC{theIC}='All initial concentrations 0 except cI_{rna}(0)=20';
+%20 molecules of botn cI and cro Rna
+theIC=4;
+IC(theIC,:)=zeros(1,numVars); 
+IC(theIC,n_ir)=20;
+IC(theIC,n_or)=20; 
+titleTxtIC{theIC}='Both rna initially=20';
+% end of ICs
+numICs=size(IC,1);
+numRuns=runsPerIC * numICs;
+
+
+A_array=-1*ones(maxStep+1,numVars,numRuns); %add one for t=0 initial condition
 %REASON FOR the -1 inital array:
 %preallocating Acells speeds things up by 50%(!), but it gives erroneous 0 values
 %for runs that terminate early
 %a workaround is to populate with negative vals, since this is
 %a non-negative simulation. 
 %   this way the negative data can be filtered out later
+
+
 
 
 %%% model parameters
@@ -101,12 +143,12 @@ N(v_op_n,n_op)=-1;
 tic();
 %% loop across replicates  
 fprintf('starting %d runs of %d iterations each\n',numRuns,maxStep);
-for theRun=[1:numRuns]
+for theRun=1:numRuns
 
 
 	%rotate through ICs as we go through runs
-	theIC=mod(numRuns,numICs)+1;
-	A_array(1,:,theRun)=IC(theIC);
+	theIC=ceil((theRun/numRuns)*numICs);
+	A_array(1,:,theRun)=IC(theIC,:);
 
 
 
@@ -182,13 +224,13 @@ for theRun=[1:numRuns]
 
 			curStep=curStep+1;
 			%display something every thousand steps so we know it's not hung
-			if ~mod(curStep,5000)
+            if ~mod(curStep,5000)
 				fprintf('%d.',curStep);
 				%flush the output paging buffer
-				if is_octave
-					 fflush(stdout) ;
-				end
-			end
+                if is_octave
+                    fflush(stdout) ;
+                end
+            end
 
 
 
@@ -208,62 +250,145 @@ end % loop replicates loop
 
 
 toc()
+
+%separate runs with different ICs
+IC_idx=reshape(1:numRuns,numRuns/numICs,numICs)';
+
+%the IC_idx holds the indexes A_array(:,:,IC_idx(theIC)) 
+%for each IC condition
+
+%% do aggregate stats
+disp('last-iteration stats for each IC');
+%TODO: this asssumes that no run ended early due to a0==0
+%if a run does end early, there will be a bunch of terminating
+% -1s that will get averaged in....
+
+% endValStats=struct( eMean,[:,:] , ...
+% 					eMedian,[:,:], ...
+% 					eStd,[:,:], ...
+% 					eMin,[:,:], ...
+% 					eMax,[:,:]);
+
+for theIC=1:numICs
+	endPointData=squeeze((A_array(end,1:numChems,IC_idx(theIC,:))))';
+	meanEndVals(theIC,:)=mean(endPointData);
+	medianEndVals(theIC,:)=median(endPointData);
+	stdEndVals(theIC,:)=std(endPointData);
+	minEndVals(theIC,:)=min(endPointData);
+	maxEndVals(theIC,:)=max(endPointData);
+ 	
+ 	disp({['****',titleTxtIC{theIC}]});
+% 	disp('mean');
+%	disp(meanEndVals(theIC,:));
+	disp('median');
+	disp(medianEndVals(theIC,:));
+	disp('std dev');
+	disp(stdEndVals(theIC,:));
+	disp('min');
+	disp(minEndVals(theIC,:));
+	disp('max');
+	disp(maxEndVals(theIC,:));
+end
+
+% choose a threshold value between the two stable states
+% (should be something higher than maxEndVals(theIC=3);
+% and ideally also lower that minEndVals(theIC=2);
+
+
+
 %% plot results
+for theIC=1:numICs
+    %protein vs protein
+    %TODO: deal with non-positive data in log-log plot
+
+    
+    % title stings used in all plots
+    titleTxt2=titleTxtIC{theIC};
+    titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
+                '  \chi_{cI}=',num2str(P.x_ci_r), ...
+                '  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
+            
+            
+    if doPhasePlots
+    figure()
+        for theRun=IC_idx(theIC,:)
+            l_data=A_array(:,:,theRun); 
+            l_data(0==l_data)=0.1;
+            loglog(l_data(:, n_ip), l_data(:, n_op));
+            hold on;
+            titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)),' stochastic trials']; ...
+				'0.1 added to zero values to allow log-scale plot'}	;
+            title([titleTxt1;titleTxt2;titleTxt3]);
+            ylabel ('molecules of cro protein');
+			xlabel ('molecules of cI protein');
+
+        end
+	end
 
 
-%protein vs protein
-%TODO: deal with non-positive data in log-log plot
 
-figure()
-for theRun=1:numRuns
-	l_data=A_array(:,:,theRun); 
-	l_data(0==l_data)=0.1;
-	loglog(l_data(:, n_ip), l_data(:, n_op));
-	hold on;
+
+	titleTxt1={['Gilespie simulation of lysis/lysogeny gene model showing ', ...
+		num2str(size(IC_idx,2)),' stochastic trials']};
+	%this ia outside if doXYPlots, becuase logy plotting using this 
+	%title also
+	
+	if doXYPlots
+		figure()
+		for theRun=IC_idx(theIC,:)
+			plot(cumsum(A_array(:,n_tm,theRun)),A_array(:,1:numChems,theRun));
+			%the time vector A_array(:,n_tm,theRun) contains the time
+			%between reactions. So to plot conectrations over time
+			%we use the cumsum() of the reaction times
+			hold on;
+		end
+		legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
+		title([titleTxt1;titleTxt2;titleTxt3]);
+		xlabel('time (s)');
+		ylabel('number of molecules');
+		legend(legTxt,'Location','East');
+		hold off;
+	end
+
+	
+    %semilogy
+    if doLogPlots
+		figure()
+		for theRun=IC_idx(theIC,:)
+			l_data=A_array(:,:,theRun); 
+			l_data(0==l_data(:,1:numChems))=0.1;
+			semilogy(cumsum(l_data(:,n_tm)),l_data(:,1:numChems));
+				%the time vector A_array(:,n_tm,theRun) contains the time
+				%between reactions. So to plot conectrations over time
+				%we use the cumsum() of the reaction times
+			xlabel('time (s)');
+			ylabel('number of molecules');
+			legend(legTxt,'Location','East');
+			titleTxt1_5={	'0.1 added to zero values to allow log-scale plot'}	;
+			title([titleTxt1;titleTxt1_5;titleTxt2;titleTxt3]);
+
+			hold on;
+		end
+	end
+    
+end %loop over ICc
+
+%do combined phase plot
+if doPhasePlots
+	figure()
+	for theRun=1:numRuns
+		l_data=A_array(:,:,theRun); 
+		l_data(0==l_data)=0.1;
+		loglog(l_data(:, n_ip), l_data(:, n_op));
+		hold on;
+	end
+	titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)),' stochastic trials']; ...
+			'0.1 added to zero values to allow log-scale plot'}	;
+	titleTxt2={'showing all ICs'};
+	titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
+				'  \chi_{cI}=',num2str(P.x_ci_r), ...
+				'  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
+	title([titleTxt1;titleTxt2;titleTxt3]);
+	ylabel ('molecules of cro protein');
+	xlabel ('molecules of cI protein');
 end
-titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(numRuns),' stochastic trials']; ...
-		'0.1 added to zero values to allow log-scale plot'}	;
-titleTxt2={['all Initial values 0']};
-titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
-			'  \chi_{cI}=',num2str(P.x_ci_r), ...
-			'  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
-title([titleTxt1;titleTxt2;titleTxt3]);
-ylabel ('molecules of cro protein');
-xlabel ('molecules of cI protein');
-
-
-
-
-
-
-figure()
-for theRun=1:numRuns
-	plot(cumsum(A_array(:,n_tm,theRun)),A_array(:,1:numChems,theRun));
-
-	hold on;
-
-end
-legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
-titleTxt1={['Gilespie simulation of lysis gene model showing ',num2str(numRuns),' stochastic trials']};
-title([titleTxt1;titleTxt2;titleTxt3]);
-xlabel('time (s)');
-ylabel('number of molecules');
-legend(legTxt,'Location','East');
-
-hold off;
-%semilogy
-figure()
-for theRun=1:numRuns
-	l_data=A_array(:,:,theRun); 
-	l_data(0==l_data(:,1:numChems))=0.1;
-	semilogy(cumsum(l_data(:,n_tm)),l_data(:,1:numChems));
-
-	hold on;
-
-end
-xlabel('time (s)');
-ylabel('number of molecules');
-legend(legTxt,'Location','East');
-titleTxt1_5={	'0.1 added to zero values to allow log-scale plot'}	;
-title([titleTxt1;titleTxt1_5;titleTxt2;titleTxt3]);
-

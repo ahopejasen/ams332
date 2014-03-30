@@ -11,3 +11,6 @@
 *.csv
 *.sobj
 *.ods
+*.mat
+#citirx fileshare lockfile?
+.access\^

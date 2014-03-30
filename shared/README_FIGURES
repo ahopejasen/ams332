@@ -1,0 +1,3 @@
+Matlab does not have functionality to maximize/restore figures programatically
+but a workaround has been published as compiled .p files
+from <cite>http://www.mathworks.com/matlabcentral/answers/98331</cite>

@@ -46,13 +46,16 @@ if ~exist('doSimulation','var') %allows me to overide this from the workspace
 			%existing data from workspace
 end
 
+if ~exist('maxStep','var')
+	maxStep=50000; % maximum steps
+end
 
-	%% initializations
 
+
+%% initializations
 if doSimulation
 	%%% model variables
-	maxStep=50000; % maximum steps
-	curStep=0;  % current step
+
 
 	% 5 vars x r replicate array x n steps
 	numVars=6; %four chemicals, *time*, and reaction_number, for each replicate
@@ -60,12 +63,12 @@ if doSimulation
 
 	%indices for arrays (because numbers are hard to debug, and 
 	%structs/classes of arrays might be slow compared to strict arrays
-	n_ir=1; %cI rna
-	n_ip=2; % cI protein
-	n_or=3; %cro RNA
-	n_op=4; %cro protein
-	n_tm=5; %time steps
-	n_rn=6; %reaction that happened at each step
+	n.ir=1; %cI rna
+	n.ip=2; % cI protein
+	n.o_r=3; %cro RNA
+	n.op=4; %cro protein
+	n.tm=5; %time steps
+	n.rn=6; %reaction that happened at each step
 
 
 
@@ -81,18 +84,18 @@ if doSimulation
 	%20 molecules of cro Rna
 	theIC=ic_cro;
 	IC(theIC,:)=zeros(1,numVars); 
-	IC(theIC,n_or)=20; 
+	IC(theIC,n.o_r)=20; 
 	titleTxtIC{theIC}='All initial concentrations 0 except cro_{rna}(0)=20';
 	%20 molecules of cI Rna
 	theIC=ic_ci;
 	IC(theIC,:)=zeros(1,numVars); 
-	IC(theIC,n_ir)=20; 
+	IC(theIC,n.ir)=20; 
 	titleTxtIC{theIC}='All initial concentrations 0 except cI_{rna}(0)=20';
 	%20 molecules of botn cI and cro Rna
 	theIC=ic_both;
 	IC(theIC,:)=zeros(1,numVars); 
-	IC(theIC,n_ir)=20;
-	IC(theIC,n_or)=20; 
+	IC(theIC,n.ir)=20;
+	IC(theIC,n.o_r)=20; 
 	titleTxtIC{theIC}='Both rna initially=20';
 	% end of ICs
 	numICs=size(IC,1);
@@ -128,151 +131,19 @@ if doSimulation
 				... % this is not an error: k_cro is used in the equation for cI
 	);
 
-
-
-	%%% Eight reaction rates as a function of time and state
-	% (two reactions (create and destroy) for each variable)
-	numRxns=2*(numChems); %(the last variables, time rxnNum, dont count in reactions );
-	V=zeros(1,numRxns); 
-
-	%indexes for reactions rates
-	v_ir_p=1; %cI rna positive (creation) rate
-	v_ir_n=2; %cI rna negative (decay) rate
-	v_ip_p=3; % cI protein positive (creation) rate
-	v_ip_n=4; % cI protein negative (decay) rate
-	v_or_p=5; %cro RNA positive (creation) rate
-	v_or_n=6; %cro RNA negative (decay) rate
-	v_op_p=7; %cro protein positive (creation) rate
-	v_op_n=8; %cro protein negative (decay) rate
-
-
-	%%% population update vectors for these eqs
-	N=zeros(numRxns,numChems); % A(n+1,1:numChems)=A(n,1:numChems)+N(reaction_num_chosen,:);
-	N(v_ir_p,n_ir)=1;
-	N(v_ir_n,n_ir)=-1;
-	N(v_ip_p,n_ip)=1;
-	N(v_ip_n,n_ip)=-1;
-	N(v_or_p,n_or)=1;
-	N(v_or_n,n_or)=-1;
-	N(v_op_p,n_op)=1;
-	N(v_op_n,n_op)=-1;
-
 	tic();
-	%% loop across replicates  
+	T=struct ( 'numRuns',numRuns,'maxStep',maxStep, ...
+				'numVars',numVars, 'numICs',numICs, 'numChems',numChems);
 
-	fprintf('starting %d runs of %d iterations each\n',numRuns,maxStep);
-	for theRun=1:numRuns
+	theParms=struct ( 'T',T , 'P',P,'IC',IC, 'n',n );
 
-
-		%rotate through ICs as we go through runs
-		theIC=ceil((theRun/numRuns)*numICs);
-		A_array(1,:,theRun)=IC(theIC,:);
-
-
-
-		%A=Acells{theRun}; %A( time, numVars ) %would be nice if this were a pointer/reference
-		A=A_array(:,:,theRun); %A( time, numVars ) %would be nice if this were a pointer/reference
-											%but it's not: i'll need to update A_array(:,:,theRun)
-											%when the simulation loop is done.
-
-		a0=0; % *zero propensity*: probability that _some_ reaction happens
-
-		V=zeros(1,numRxns); 
-
-		curStep=1; %loop counter for simulation loop
-		%% simulation loop
-		notDone=true;
-		while notDone
-
-			%% current concentrations
-			a_ir=A(curStep,n_ir); % current amount of $$cI_{rna}$$
-			a_ip=A(curStep,n_ip); % current amount of $$cI_{pro}$$
-			a_or=A(curStep,n_or); % current amount of $$cro_{rna}$$
-			a_op=A(curStep,n_op); % current amount of $$cro_{pro}$$
-
-
-
-			%% calculate V, the vector of reaction rates
-			% V has dimensions (1,numRxns)
-			% $cI_{rna}$
-			% hill function $=\frac{a_op^2}{k_{cro}^2 + a_op^2}$
-			V(v_ir_p)= P.mu_ci .* (1 - hill2(a_op,P.k_cro)); % cI_rna generator
-			V(v_ir_n) = P.x_ci_r .* a_ir ; % cI_rna decay
-
-			% $cI_{pro}$
-			V(v_ip_p)= P.w_ci .* a_ir; % cI_pro generator
-			V(v_ip_n)= P.x_ci_p .* a_ip; % cI_pro decay
-
-			% $cro_{rna}$
-			% hill function $=\frac{a_ip^2}{k_{cI}^2 + a_ip^2}$
-			V(v_or_p)= P.mu_cro .* (1 - hill2(a_ip,P.k_ci)); % cro_rna generator
-			V(v_or_n)= P.x_cro_r .* a_or ; % cro_rna decay
-
-			% $cro_{rna}$
-			V(v_op_p)= P.w_cro .* a_or; % cro_pro generator
-			V(v_op_n)= P.x_cro_p .* a_op; % cro_pro decay
-
-			% calculate a0= $\sum V_{j}
-			a0=sum(V);
-
-			if a0 %at least one reaction has non-zero probability...
-				%%% calculate tNext
-				u=rand();
-				t_next=-log(u)./a0; 
-				A(curStep+1,n_tm)=t_next; %keeps track of time steps in datavector A
-
-				%%% calculate next reaction
-				r=rand();
-				V_sum=cumsum(V); 
-
-
-				theRxnNum=find(V_sum > r.*a0,1,'first');
-					% this _find()_ idiom is a hack from <cite>ams332 class text p. 169</cite>
-					% TODO: this might fail if rounding error makes r.*a0 > V_sum
-					% Safer to assign to a temp var, test if empty(), replace with
-					% zero, and then assigning to theRxnNum.
-				A(curStep+1,n_rn)=theRxnNum; % keeps track of which reactions happened
-
-
-				%% update state of A
-				A_chems_next=A(curStep,1:numChems)+N(theRxnNum,:);
-				%set any negative concentrations equal to 0
-				A_chems_next(A_chems_next<0)=0;
-				A(curStep+1,1:numChems)=A_chems_next;
-
-				curStep=curStep+1;
-				%display something every thousand steps so we know it's not hung
-				if ~mod(curStep,5000)
-					fprintf('%d.',curStep);
-					%flush the output paging buffer
-					if is_octave
-						fflush(stdout) ;
-					end
-				end
-
-
-
-			else %  a0==0 no more possible transistions
-				notDone=false; 
-			end
-
-			%%% check loop exit conditions
-			notDone= (notDone && (curStep <= maxStep) && a0 > 0 ); % loop condition
-		end % main simulation loop
-	fprintf('\nfinished run %d/%d\n',theRun,numRuns);
-
-	%update Acells
-	%Acells{theRun}=A; 
-	A_array(:,:,theRun)=A; 
-	end % loop replicates loop
-
-
-	toc()
-end %if do simulation
+	if doSimulation
+		A_array=runSimulation(A_array,theParms);
+	end
+end
 
 %separate runs with different ICs
 IC_idx=reshape(1:numRuns,numRuns/numICs,numICs)';
-
 %the IC_idx holds the indexes A_array(:,:,IC_idx(theIC)) 
 %for each IC condition
 
@@ -298,7 +169,15 @@ endStats=struct ('mean',zeros(numICs,numChems), ...
 				'max',zeros(numICs,numChems)) ;
 			
 for theIC=1:numICs
-	endPointData=squeeze((A_array(end,1:numChems,IC_idx(theIC,:))))';
+	%endPointData=squeeze((A_array(end,1:numChems,IC_idx(theIC,:))))';
+	%squeeze removes all sigleton dimensions, so  when
+	%there is only one IC, endPointData is one dimensional which breaks
+	%by code. using reshape instead...
+	curRuns=IC_idx(theIC,:); %run numbers for current IC
+	endPointData=A_array(end,1:numChems,curRuns);
+	endPointData=reshape(endPointData,size(endPointData,2),size(endPointData,3));
+	endPointData=endPointData';
+
 	endStats.mean(theIC,:)=mean(endPointData);
 	endStats.median(theIC,:)=median(endPointData);
 	endStats.std(theIC,:)=std(endPointData);
@@ -318,12 +197,12 @@ for theIC=1:numICs
 	% These runs are the ones with unexpected equilibria: count them and 
 	% flag them for plottting.
 
-	if endStats.median(theIC,n_op)>endStats.median(theIC,n_ip) %op (cro) equil
-		transgressors(theIC,:)=(endPointData(:,n_ip)>endPointData(:,n_op))';
+	if endStats.median(theIC,n.op)>endStats.median(theIC,n.ip) %op (cro) equil
+		transgressors(theIC,:)=(endPointData(:,n.ip)>endPointData(:,n.op))';
 		fprintf(fp,'%d/%d runs reached the unexpected cI equilibrium\n', ...
 			sum(transgressors(theIC,:)),runsPerIC);
 	else %ip (cI) equilibrium
-		transgressors(theIC,:)=(endPointData(:,n_ip)<endPointData(:,n_op))';
+		transgressors(theIC,:)=(endPointData(:,n.ip)<endPointData(:,n.op))';
 		fprintf(fp,'%d/%d runs reached the unexpected cro equilibrium\n', ...
 			sum(transgressors(theIC,:)),runsPerIC);
 	end
@@ -363,9 +242,9 @@ for theIC=1:numICs
         for theRun=IC_idx(theIC,:)
             l_data=A_array(:,:,theRun); 
             l_data(0==l_data)=0.1;
-            loglog(l_data(:, n_ip), l_data(:, n_op));
+            loglog(l_data(:, n.ip), l_data(:, n.op));
             hold on;
-            titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)), ... 
+            titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)), ...
 				' stochastic trials']; ...
 				'0.1 added to zero values to allow log-scale plot'}	;
             title([titleTxt1;titleTxt2;titleTxt3]);
@@ -386,8 +265,8 @@ for theIC=1:numICs
 	if doXYPlots
 		figure()
 		for theRun=IC_idx(theIC,:)
-			plot(cumsum(A_array(:,n_tm,theRun)),A_array(:,1:numChems,theRun));
-			%the time vector A_array(:,n_tm,theRun) contains the time
+			plot(cumsum(A_array(:,n.tm,theRun)),A_array(:,1:numChems,theRun));
+			%the time vector A_array(:,n.tm,theRun) contains the time
 			%between reactions. So to plot conectrations over time
 			%we use the cumsum() of the reaction times
 			hold on;
@@ -407,8 +286,8 @@ for theIC=1:numICs
 		for theRun=IC_idx(theIC,:)
 			l_data=A_array(:,:,theRun); 
 			l_data(0==l_data(:,1:numChems))=0.1;
-			semilogy(cumsum(l_data(:,n_tm)),l_data(:,1:numChems));
-				%the time vector A_array(:,n_tm,theRun) contains the time
+			semilogy(cumsum(l_data(:,n.tm)),l_data(:,1:numChems));
+				%the time vector A_array(:,n.tm,theRun) contains the time
 				%between reactions. So to plot conectrations over time
 				%we use the cumsum() of the reaction times
 			xlabel('time (s)');
@@ -429,7 +308,7 @@ if doPhasePlots
 	for theRun=1:numRuns
 		l_data=A_array(:,:,theRun); 
 		l_data(0==l_data)=0.1;
-		loglog(l_data(:, n_ip), l_data(:, n_op));
+		loglog(l_data(:, n.ip), l_data(:, n.op));
 		hold on;
 	end
 	titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)),' stochastic trials']; ...
@@ -442,3 +321,28 @@ if doPhasePlots
 	ylabel ('molecules of cro protein');
 	xlabel ('molecules of cI protein');
 end
+
+%% Part 4 degradation and switch from lysogeny 
+% deterministic sim showed time-dependent switch taking 50s
+% for xCI_pro=6.2, try 6.5 here for a faster response
+
+
+%set lyosogenic ICs
+P.x_ci_p=6.5;
+%clear theParms.IC titleTxtIC
+%clear-ing a member of a struct does not work
+
+clear IC titleTxtIC
+theIC=1;
+IC(theIC,:)=zeros(1,numVars); %initialize all ICs to 0
+IC(theIC,n.ir)=20; %update cI_{rna}(0) 
+theParms.IC=IC;
+clear IC
+theParms.T.numICs=size(theParms.IC,1);
+theParms.T.numRuns=runsPerIC * theParms.T.numICs;
+titleTxtIC{theIC}='All initial concentrations 0 except cI_{rna}(0)=20';
+%theParms.T.maxStep=100000; %simulation length
+theParms.T.maxStep=10000; %simulation length (TODO: testing)
+L_array=-1*ones(maxStep+1,theParms.T.numVars,theParms.T.numRuns); %add one for t=0 initial condition
+L_array=runSimulation(L_array,theParms);
+%% plot lysogenic decat simulation

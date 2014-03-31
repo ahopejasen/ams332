@@ -269,20 +269,20 @@ if doPart3
 %	relDiff(X,1,theParms.N.timeStep); % difference over 1s, simulation timestep 0.01
 %	% results: abs change < 0.01/s rel change < 0.001% /s
 %
-	%% now change simulation parameters to cause cI decay
-	%% Results: switch occurs near $$\chi_{cI,Pro}=6.01175$$
-	%% $$\chi_{cI,Pro}=6.2 switches to cro after 50s $$
-	%% $$\chi_{cI,Pro}=6.05 switches to cro after 110s $$
-	%% $$\chi_{cI,Pro}=6.02 switches to cro after 230s $$
-	%% $$\chi_{cI,Pro}=6.015 switches to cro after 370s $$
-	%% $$\chi_{cI,Pro}=6.013 switches to cro after 560s $$
-	%% $$\chi_{cI,Pro}=6.012 switches to cro after 970s $$
-	%% $$\chi_{cI,Pro}=6.01175 switches to cro after 1370s $$
-	%% $$\chi_{cI,Pro}=6.0115 gives stable mix 260:7 cI:cro to 2000 secs$$
-	%% $$\chi_{cI,Pro}=6.011 gives stable mix 262:6 cI:cro to 2000 secs$$
-	%% $$\chi_{cI,Pro}=6.01 gives stable mix 263:7 cI:cro to 1000 secs$$
-	%% $$\chi_{cI,Pro}=6.0 gives stable mix 300:7 cI:cro to 300 secs$$
-	%xCIProVect=[6.011:0.001:6.014];
+	% now change simulation parameters to cause cI decay
+	% Results: switch occurs near $\chi_{cI,Pro}=6.01175$
+	% $\chi_{cI,Pro}=6.2 switches to cro after 50s $
+	% $\chi_{cI,Pro}=6.05 switches to cro after 110s $
+	% $\chi_{cI,Pro}=6.02 switches to cro after 230s $
+	% $\chi_{cI,Pro}=6.015 switches to cro after 370s $
+	% $\chi_{cI,Pro}=6.013 switches to cro after 560s $
+	% $\chi_{cI,Pro}=6.012 switches to cro after 970s $
+	% $\chi_{cI,Pro}=6.01175 switches to cro after 1370s $
+	% $\chi_{cI,Pro}=6.0115 gives stable mix 260:7 cI:cro to 2000 secs$
+	% $\chi_{cI,Pro}=6.011 gives stable mix 262:6 cI:cro to 2000 secs$
+	% $\chi_{cI,Pro}=6.01 gives stable mix 263:7 cI:cro to 1000 secs$
+	% $\chi_{cI,Pro}=6.0 gives stable mix 300:7 cI:cro to 300 secs$
+	% xCIProVect=[6.011:0.001:6.014];
 
 	%skip ode45 for now, too many crosses on plot
 	theParms.N.doOde45=0;

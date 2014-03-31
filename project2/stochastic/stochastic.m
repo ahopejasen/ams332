@@ -14,6 +14,13 @@ STARTPATH=addpath(SHAREDIR);
 
 
 %% switches to control script behavior
+if ~exist('fp','var') %output file handle
+	fp=0; %stdout
+else
+	if fp<0 %invalid file
+		fp=0;
+	end
+end
 if ~exist('runsPerIC','var') %allows me to overide this from the workspace
     runsPerIC=20; %replicates for each IC 
 end
@@ -298,8 +305,8 @@ for theIC=1:numICs
 	endStats.min(theIC,:)=min(endPointData);
 	endStats.max(theIC,:)=max(endPointData);
  	
- 	fprintf('%s\n',titleTxtIC{theIC});
-	fprintf('------------------------------------------------------------\n');
+ 	fprintf(fp,'%s\n',titleTxtIC{theIC});
+	fprintf(fp,'------------------------------------------------------------\n');
 	%% check for transgressor runs where the endpoint is at
 	% the non-expected equilibrium
 	% FOr each set of replicates for a given IC
@@ -313,11 +320,11 @@ for theIC=1:numICs
 
 	if endStats.median(theIC,n_op)>endStats.median(theIC,n_ip) %op (cro) equil
 		transgressors(theIC,:)=(endPointData(:,n_ip)>endPointData(:,n_op))';
-		fprintf('%d/%d runs reached the unexpected cI equilibrium\n', ...
+		fprintf(fp,'%d/%d runs reached the unexpected cI equilibrium\n', ...
 			sum(transgressors(theIC,:)),runsPerIC);
 	else %ip (cI) equilibrium
 		transgressors(theIC,:)=(endPointData(:,n_ip)<endPointData(:,n_op))';
-		fprintf('%d/%d runs reached the unexpected cro equilibrium\n', ...
+		fprintf(fp,'%d/%d runs reached the unexpected cro equilibrium\n', ...
 			sum(transgressors(theIC,:)),runsPerIC);
 	end
 	
@@ -328,10 +335,10 @@ for theIC=1:numICs
 	endStats.std(theIC,:)=std(expectedData);
 	endStats.min(theIC,:)=min(expectedData);
 	endStats.max(theIC,:)=max(expectedData);
- 	fprintf('mean:\t%s \n',num2str(endStats.mean(theIC,:)))
-	fprintf('median :\t%s \n',num2str(endStats.median(theIC,:)))
-	fprintf('std deviation:\t%s \n',num2str(endStats.std(theIC,:)))
-	fprintf('*********************************************************\n');
+ 	fprintf(fp,'mean:\t%s \n',num2str(endStats.mean(theIC,:)))
+	fprintf(fp,'median :\t%s \n',num2str(endStats.median(theIC,:)))
+	fprintf(fp,'std deviation:\t%s \n',num2str(endStats.std(theIC,:)))
+	fprintf(fp,'*********************************************************\n');
 % 	disp('min');
 %	disp(endStats.min(theIC,:));
 % 	disp('max');

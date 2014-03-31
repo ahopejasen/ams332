@@ -15,10 +15,10 @@ STARTPATH=addpath(SHAREDIR);
 
 %% switches to control script behavior
 if ~exist('fp','var') %output file handle
-	fp=0; %stdout
+	fp=1; %stdout
 else
-	if fp<0 %invalid file
-		fp=0;
+	if fp<1 %invalid file
+		fp=1;
 	end
 end
 if ~exist('runsPerIC','var') %allows me to overide this from the workspace
@@ -46,8 +46,12 @@ if ~exist('doSimulation','var') %allows me to overide this from the workspace
 			%existing data from workspace
 end
 
+if ~exist('doPart1','var')
+    doPart1=true;
+end
+
 if ~exist('maxStep','var')
-	maxStep=50000; % maximum steps
+	maxStep=50000; % maximum steps per run
 end
 
 
@@ -132,217 +136,225 @@ if doSimulation
 	);
 
 	tic();
-	T=struct ( 'numRuns',numRuns,'maxStep',maxStep, ...
-				'numVars',numVars, 'numICs',numICs, 'numChems',numChems);
+    %pack up scalars into a struct
+    T=v2struct(numRuns,maxStep,numVars,numICs,numChems,runsPerIC) ;
 
-	theParms=struct ( 'T',T , 'P',P,'IC',IC, 'n',n );
-
-	if doSimulation
+	%theParms=struct ( 'T',T , 'P',P,'IC',IC, 'n',n );
+    %make parameter struct of structs
+    theParms=v2struct(T,P,IC,n);
+	if doPart1
 		A_array=runSimulation(A_array,theParms);
 	end
 end
 
-%separate runs with different ICs
-IC_idx=reshape(1:numRuns,numRuns/numICs,numICs)';
-%the IC_idx holds the indexes A_array(:,:,IC_idx(theIC)) 
-%for each IC condition
-
 %% do aggregate stats
-disp('last-iteration stats for each IC');
-%TODO: this asssumes that no run ended early due to a0==0
-%if a run does end early, there will be a bunch of terminating
-% -1s that will get averaged in....
+if doPart1
+    %separate runs with different ICs
+    IC_idx=reshape(1:numRuns,numRuns/numICs,numICs)';
+    %the IC_idx holds the indexes A_array(:,:,IC_idx(theIC)) 
+    %for each IC condition
 
-% endValStats=struct( eMean,[:,:] , ...
-% 					eMedian,[:,:], ...
-% 					eStd,[:,:], ...
-% 					eMin,[:,:], ...
-% 					eMax,[:,:]);
-transgressors=zeros(numICs,runsPerIC); %array to hold the indices for
-			%replicates that reached the unexpected equilibrium
-titleTrans=cell(numICs); %text used later for figure titles
 
-endStats=struct ('mean',zeros(numICs,numChems), ...	
-				'median',zeros(numICs,numChems), ...
-				'std',zeros(numICs,numChems), ...
-				'min',zeros(numICs,numChems), ...
-				'max',zeros(numICs,numChems)) ;
-			
-for theIC=1:numICs
-	%endPointData=squeeze((A_array(end,1:numChems,IC_idx(theIC,:))))';
-	%squeeze removes all sigleton dimensions, so  when
-	%there is only one IC, endPointData is one dimensional which breaks
-	%by code. using reshape instead...
-	curRuns=IC_idx(theIC,:); %run numbers for current IC
-	endPointData=A_array(end,1:numChems,curRuns);
-	endPointData=reshape(endPointData,size(endPointData,2),size(endPointData,3));
-	endPointData=endPointData';
+    disp('last-iteration stats for each IC');
+    %TODO: this asssumes that no run ended early due to a0==0
+    %if a run does end early, there will be a bunch of terminating
+    % -1s that will get averaged in....
 
-	endStats.mean(theIC,:)=mean(endPointData);
-	endStats.median(theIC,:)=median(endPointData);
-	endStats.std(theIC,:)=std(endPointData);
-	endStats.min(theIC,:)=min(endPointData);
-	endStats.max(theIC,:)=max(endPointData);
- 	
- 	fprintf(fp,'%s\n',titleTxtIC{theIC});
-	fprintf(fp,'------------------------------------------------------------\n');
-	%% check for transgressor runs where the endpoint is at
-	% the non-expected equilibrium
-	% FOr each set of replicates for a given IC
-	% check the median vals, and assume that if
-	% median(cro_protein) > median(ic_protein), the expected equilibrium
-	% is cro and vice versa (this could fail on edge-case runs)
-	% Then, given we know what the expected equililbium is, find any
-	% replicates where endpoint_cI_pro > endpoint_cro_pro (or vice versa)
-	% These runs are the ones with unexpected equilibria: count them and 
-	% flag them for plottting.
+    % endValStats=struct( eMean,[:,:] , ...
+    % 					eMedian,[:,:], ...
+    % 					eStd,[:,:], ...
+    % 					eMin,[:,:], ...
+    % 					eMax,[:,:]);
+    transgressors=zeros(numICs,runsPerIC); %array to hold the indices for
+                %replicates that reached the unexpected equilibrium
+    titleTrans=cell(numICs); %text used later for figure titles
 
-	if endStats.median(theIC,n.op)>endStats.median(theIC,n.ip) %op (cro) equil
-		transgressors(theIC,:)=(endPointData(:,n.ip)>endPointData(:,n.op))';
-		fprintf(fp,'%d/%d runs reached the unexpected cI equilibrium\n', ...
-			sum(transgressors(theIC,:)),runsPerIC);
-	else %ip (cI) equilibrium
-		transgressors(theIC,:)=(endPointData(:,n.ip)<endPointData(:,n.op))';
-		fprintf(fp,'%d/%d runs reached the unexpected cro equilibrium\n', ...
-			sum(transgressors(theIC,:)),runsPerIC);
-	end
-	
-	%%recalculate descriptive stats with transgressors removed
-	expectedData= endPointData(~(transgressors(theIC,:)),:);
-	endStats.mean(theIC,:)=mean(expectedData);
-	endStats.median(theIC,:)=median(expectedData);
-	endStats.std(theIC,:)=std(expectedData);
-	endStats.min(theIC,:)=min(expectedData);
-	endStats.max(theIC,:)=max(expectedData);
- 	fprintf(fp,'mean:\t%s \n',num2str(endStats.mean(theIC,:)))
-	fprintf(fp,'median :\t%s \n',num2str(endStats.median(theIC,:)))
-	fprintf(fp,'std deviation:\t%s \n',num2str(endStats.std(theIC,:)))
-	fprintf(fp,'*********************************************************\n');
-% 	disp('min');
-%	disp(endStats.min(theIC,:));
-% 	disp('max');
-% 	disp(endStats.max(theIC,:));
-end
+    endStats=struct ('mean',zeros(numICs,numChems), ...	
+                    'median',zeros(numICs,numChems), ...
+                    'std',zeros(numICs,numChems), ...
+                    'min',zeros(numICs,numChems), ...
+                    'max',zeros(numICs,numChems)) ;
 
-%% plot results
-for theIC=1:numICs
-    %protein vs protein
-    %TODO: deal with non-positive data in log-log plot
+    for theIC=1:numICs
+        %endPointData=squeeze((A_array(end,1:numChems,IC_idx(theIC,:))))';
+        %squeeze removes all sigleton dimensions, so  when
+        %there is only one IC, endPointData is one dimensional which breaks
+        %by code. using reshape instead...
+        curRuns=IC_idx(theIC,:); %run numbers for current IC
+        endPointData=A_array(end,1:numChems,curRuns);
+        endPointData=reshape(endPointData,size(endPointData,2),size(endPointData,3));
+        endPointData=endPointData';
 
-    
-    % title stings used in all plots
-    titleTxt2=titleTxtIC{theIC};
-    titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
-                '  \chi_{cI}=',num2str(P.x_ci_r), ...
-                '  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
-            
-            
+        endStats.mean(theIC,:)=mean(endPointData);
+        endStats.median(theIC,:)=median(endPointData);
+        endStats.std(theIC,:)=std(endPointData);
+        endStats.min(theIC,:)=min(endPointData);
+        endStats.max(theIC,:)=max(endPointData);
+
+        fprintf(fp,'%s\n',titleTxtIC{theIC});
+        fprintf(fp,'------------------------------------------------------------\n');
+        %% check for transgressor runs where the endpoint is at
+        % the non-expected equilibrium
+        % FOr each set of replicates for a given IC
+        % check the median vals, and assume that if
+        % median(cro_protein) > median(ic_protein), the expected equilibrium
+        % is cro and vice versa (this could fail on edge-case runs)
+        % Then, given we know what the expected equililbium is, find any
+        % replicates where endpoint_cI_pro > endpoint_cro_pro (or vice versa)
+        % These runs are the ones with unexpected equilibria: count them and 
+        % flag them for plottting.
+
+        if endStats.median(theIC,n.op)>endStats.median(theIC,n.ip) %op (cro) equil
+            transgressors(theIC,:)=(endPointData(:,n.ip)>endPointData(:,n.op))';
+            fprintf(fp,'%d/%d runs reached the unexpected cI equilibrium\n', ...
+                sum(transgressors(theIC,:)),runsPerIC);
+        else %ip (cI) equilibrium
+            transgressors(theIC,:)=(endPointData(:,n.ip)<endPointData(:,n.op))';
+            fprintf(fp,'%d/%d runs reached the unexpected cro equilibrium\n', ...
+                sum(transgressors(theIC,:)),runsPerIC);
+        end
+
+        %%recalculate descriptive stats with transgressors removed
+        expectedData= endPointData(~(transgressors(theIC,:)),:);
+        endStats.mean(theIC,:)=mean(expectedData);
+        endStats.median(theIC,:)=median(expectedData);
+        endStats.std(theIC,:)=std(expectedData);
+        endStats.min(theIC,:)=min(expectedData);
+        endStats.max(theIC,:)=max(expectedData);
+        fprintf(fp,'mean:\t%s \n',num2str(endStats.mean(theIC,:)))
+        fprintf(fp,'median :\t%s \n',num2str(endStats.median(theIC,:)))
+        fprintf(fp,'std deviation:\t%s \n',num2str(endStats.std(theIC,:)))
+        fprintf(fp,'*********************************************************\n');
+    % 	disp('min');
+    %	disp(endStats.min(theIC,:));
+    % 	disp('max');
+    % 	disp(endStats.max(theIC,:));
+    end
+
+    %% plot results
+    for theIC=1:numICs
+        %protein vs protein
+        %TODO: deal with non-positive data in log-log plot
+
+
+        % title stings used in all plots
+        titleTxt2=titleTxtIC{theIC};
+        titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
+                    '  \chi_{cI}=',num2str(P.x_ci_r), ...
+                    '  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
+
+
+        if doPhasePlots
+        figure()
+            for theRun=IC_idx(theIC,:)
+                l_data=A_array(:,:,theRun); 
+                l_data(0==l_data)=0.1;
+                loglog(l_data(:, n.ip), l_data(:, n.op));
+                hold on;
+                titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)), ...
+                    ' stochastic trials']; ...
+                    '0.1 added to zero values to allow log-scale plot'}	;
+                title([titleTxt1;titleTxt2;titleTxt3]);
+                ylabel ('molecules of cro protein');
+                xlabel ('molecules of cI protein');
+
+            end
+        end
+
+
+
+
+        titleTxt1={['Gilespie simulation of lysis/lysogeny gene model showing ', ...
+            num2str(size(IC_idx,2)),' stochastic trials']};
+        %this ia outside if doXYPlots, becuase logy plotting using this 
+        %title also
+
+        if doXYPlots
+            figure()
+            for theRun=IC_idx(theIC,:)
+                plot(cumsum(A_array(:,n.tm,theRun)),A_array(:,1:numChems,theRun));
+                %the time vector A_array(:,n.tm,theRun) contains the time
+                %between reactions. So to plot conectrations over time
+                %we use the cumsum() of the reaction times
+                hold on;
+            end
+            legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
+            title([titleTxt1;titleTxt2;titleTxt3]);
+            xlabel('time (s)');
+            ylabel('number of molecules');
+            legend(legTxt,'Location','East');
+            hold off;
+        end
+
+
+        %semilogy
+        if doLogPlots
+            figure()
+            for theRun=IC_idx(theIC,:)
+                l_data=A_array(:,:,theRun); 
+                l_data(0==l_data(:,1:numChems))=0.1;
+                semilogy(cumsum(l_data(:,n.tm)),l_data(:,1:numChems));
+                    %the time vector A_array(:,n.tm,theRun) contains the time
+                    %between reactions. So to plot conectrations over time
+                    %we use the cumsum() of the reaction times
+                xlabel('time (s)');
+                ylabel('number of molecules');
+                legend(legTxt,'Location','East');
+                titleTxt1_5={	'0.1 added to zero values to allow log-scale plot'}	;
+                title([titleTxt1;titleTxt1_5;titleTxt2;titleTxt3]);
+
+                hold on;
+            end
+        end
+
+    end %loop over ICc
+
+    %do combined phase plot
     if doPhasePlots
-    figure()
-        for theRun=IC_idx(theIC,:)
+        figure()
+        for theRun=1:numRuns
             l_data=A_array(:,:,theRun); 
             l_data(0==l_data)=0.1;
             loglog(l_data(:, n.ip), l_data(:, n.op));
             hold on;
-            titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)), ...
-				' stochastic trials']; ...
-				'0.1 added to zero values to allow log-scale plot'}	;
-            title([titleTxt1;titleTxt2;titleTxt3]);
-            ylabel ('molecules of cro protein');
-			xlabel ('molecules of cI protein');
-
         end
-	end
-
-
-
-
-	titleTxt1={['Gilespie simulation of lysis/lysogeny gene model showing ', ...
-		num2str(size(IC_idx,2)),' stochastic trials']};
-	%this ia outside if doXYPlots, becuase logy plotting using this 
-	%title also
-	
-	if doXYPlots
-		figure()
-		for theRun=IC_idx(theIC,:)
-			plot(cumsum(A_array(:,n.tm,theRun)),A_array(:,1:numChems,theRun));
-			%the time vector A_array(:,n.tm,theRun) contains the time
-			%between reactions. So to plot conectrations over time
-			%we use the cumsum() of the reaction times
-			hold on;
-		end
-		legTxt={'cI mRNA','cI protein','cro mRNA','cro protein'};
-		title([titleTxt1;titleTxt2;titleTxt3]);
-		xlabel('time (s)');
-		ylabel('number of molecules');
-		legend(legTxt,'Location','East');
-		hold off;
-	end
-
-	
-    %semilogy
-    if doLogPlots
-		figure()
-		for theRun=IC_idx(theIC,:)
-			l_data=A_array(:,:,theRun); 
-			l_data(0==l_data(:,1:numChems))=0.1;
-			semilogy(cumsum(l_data(:,n.tm)),l_data(:,1:numChems));
-				%the time vector A_array(:,n.tm,theRun) contains the time
-				%between reactions. So to plot conectrations over time
-				%we use the cumsum() of the reaction times
-			xlabel('time (s)');
-			ylabel('number of molecules');
-			legend(legTxt,'Location','East');
-			titleTxt1_5={	'0.1 added to zero values to allow log-scale plot'}	;
-			title([titleTxt1;titleTxt1_5;titleTxt2;titleTxt3]);
-
-			hold on;
-		end
-	end
-    
-end %loop over ICc
-
-%do combined phase plot
-if doPhasePlots
-	figure()
-	for theRun=1:numRuns
-		l_data=A_array(:,:,theRun); 
-		l_data(0==l_data)=0.1;
-		loglog(l_data(:, n.ip), l_data(:, n.op));
-		hold on;
-	end
-	titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)),' stochastic trials']; ...
-			'0.1 added to zero values to allow log-scale plot'}	;
-	titleTxt2={'showing all ICs'};
-	titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
-				'  \chi_{cI}=',num2str(P.x_ci_r), ...
-				'  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
-	title([titleTxt1;titleTxt2;titleTxt3]);
-	ylabel ('molecules of cro protein');
-	xlabel ('molecules of cI protein');
-end
+        titleTxt1={['cro_{pro} vs cI_{pro} for ',num2str(size(IC_idx,2)),' stochastic trials']; ...
+                '0.1 added to zero values to allow log-scale plot'}	;
+        titleTxt2={'showing all ICs'};
+        titleTxt3={['\mu=',num2str(P.mu_ci),'  \omega=', num2str(P.w_ci), ...
+                    '  \chi_{cI}=',num2str(P.x_ci_r), ...
+                    '  \chi_{cro}=',  num2str(P.x_cro_r), '  k=',num2str(P.k_ci)]};
+        title([titleTxt1;titleTxt2;titleTxt3]);
+        ylabel ('molecules of cro protein');
+        xlabel ('molecules of cI protein');
+    end
+end %if doPart1
 
 %% Part 4 degradation and switch from lysogeny 
 % deterministic sim showed time-dependent switch taking 50s
 % for xCI_pro=6.2, try 6.5 here for a faster response
 
 
-%set lyosogenic ICs
-P.x_ci_p=6.5;
 %clear theParms.IC titleTxtIC
 %clear-ing a member of a struct does not work
 
+%set lyosogenic ICs
 clear IC titleTxtIC
 theIC=1;
 IC(theIC,:)=zeros(1,numVars); %initialize all ICs to 0
 IC(theIC,n.ir)=20; %update cI_{rna}(0) 
-theParms.IC=IC;
-clear IC
-theParms.T.numICs=size(theParms.IC,1);
-theParms.T.numRuns=runsPerIC * theParms.T.numICs;
+T.numICs=size(IC,1);
+T.runsPerIC=100;
+T.numRuns=T.runsPerIC * T.numICs;
+T.maxStep=100000; %simulation length
 titleTxtIC{theIC}='All initial concentrations 0 except cI_{rna}(0)=20';
-%theParms.T.maxStep=100000; %simulation length
-theParms.T.maxStep=10000; %simulation length (TODO: testing)
-L_array=-1*ones(maxStep+1,theParms.T.numVars,theParms.T.numRuns); %add one for t=0 initial condition
-L_array=runSimulation(L_array,theParms);
+%set paramters to switch to lysis
+P.x_ci_p=6.5;
+doFlags=v2struct(doLogPlots,doPhasePlots,doXYPlots,doSimulation);
+theParms=v2struct(T,P,IC,n,doFlags);
+if doSimulation
+    L_array=-1*ones(theParms.T.maxStep+1,theParms.T.numVars,theParms.T.numRuns); %add one for t=0 initial condition
+    L_array=runSimulation(L_array,theParms);
+end 
 %% plot lysogenic decat simulation
+plotSimulation(L_array,theParms,titleTxtIC, fp);
